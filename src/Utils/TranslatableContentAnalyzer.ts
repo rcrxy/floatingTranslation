@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import * as vscode from "vscode";
 
 export type TranslatableContentResult =
     | {
@@ -17,35 +18,68 @@ export type TranslatableContentResult =
 const languageFenceAtStart = /^[ \t]*```([^\s`\r\n]+)[^\r\n]*\r?\n[\s\S]*?\r?\n[ \t]*```[ \t]*(?:\r?\n|$)/;
 
 export class TranslatableContentAnalyzer {
-    public constructor(private readonly text: string) {}
+    public constructor(private readonly hovers: readonly vscode.Hover[]) {}
 
     public invoke(): TranslatableContentResult {
-        const fenceMatch = languageFenceAtStart.exec(this.text);
+        const result = this.findTranslatableContent();
+
+        return result ?? this.createNotTranslatableResult();
+    }
+
+    private findTranslatableContent(): TranslatableContentResult | undefined {
+        for (const hover of this.hovers) {
+            const sourceText = this.extractSourceText(hover);
+            const result = this.analyzeSourceText(sourceText);
+
+            if (result) {
+                return result;
+            }
+        }
+
+        return undefined;
+    }
+
+    private extractSourceText(hover: vscode.Hover): string {
+        return hover.contents
+            .filter((content): content is vscode.MarkdownString => content instanceof vscode.MarkdownString)
+            .map(content => content.value)
+            .join("\n\n");
+    }
+
+    private analyzeSourceText(sourceText: string): TranslatableContentResult | undefined {
+        const fenceMatch = languageFenceAtStart.exec(sourceText);
 
         if (!fenceMatch) {
-            return this.createNotTranslatableResult();
+            return undefined;
         }
 
         const language = fenceMatch[1].toLowerCase();
-        const contents = this.text
-            .slice(fenceMatch[0].length)
-            .split(/\r?\n[ \t]*\r?\n+/)
-            .map(content => content.trim())
-            .filter(content => content.length > 0);
+        const contents = this.extractContents(sourceText, fenceMatch[0].length);
 
         if (contents.length === 0) {
-            return this.createNotTranslatableResult();
+            return undefined;
         }
-
-        const keySource = JSON.stringify({ language, contents });
-        const key = createHash("sha256").update(keySource, "utf8").digest("hex");
 
         return {
             isTranslatable: true,
             language,
             contents,
-            key,
+            key: this.createContentKey(language, contents),
         };
+    }
+
+    private extractContents(sourceText: string, fenceLength: number): string[] {
+        return sourceText
+            .slice(fenceLength)
+            .split(/\r?\n[ \t]*\r?\n+/)
+            .map(content => content.trim())
+            .filter(content => content.length > 0);
+    }
+
+    private createContentKey(language: string, contents: readonly string[]): string {
+        const keySource = JSON.stringify({ language, contents });
+
+        return createHash("sha256").update(keySource, "utf8").digest("hex");
     }
 
     private createNotTranslatableResult(): TranslatableContentResult {

@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { output } from "./Utils/output";
 import { TranslatableContentAnalyzer } from "./Utils/TranslatableContentAnalyzer";
+import { AggregationTranslation } from "./AggregationTranslation";
 
 const running = new Set<string>();
 
@@ -92,7 +93,7 @@ export function activate(context: vscode.ExtensionContext): void {
                         return undefined;
                     }
 
-                    const analysis = findTranslatableContent(hovers ?? []);
+                    const analysis = new TranslatableContentAnalyzer(hovers).invoke();
                     const sourceText = analysis?.contents.join("\n\n");
 
                     capturedHover = {
@@ -110,8 +111,9 @@ export function activate(context: vscode.ExtensionContext): void {
                         output.appendLine(
                             `已缓存可翻译 Hover，语言：${analysis.language}，内容数：${analysis.contents.length}，Key：${analysis.key}`,
                         );
+                        output.appendLine(`原文内容：\n${sourceText}`);
                     } else {
-                        output.appendLine("当前 Hover 未包含带语言标记的 Markdown 代码围栏");
+                        // output.appendLine("当前 Hover 未包含带语言标记的 Markdown 代码围栏");
                     }
 
                     // 自然 Hover 由原始语言服务负责显示。
@@ -167,7 +169,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
         const requestId = ++nextRequestId;
 
-        const translationPromise = simulateTranslation(captured.sourceText).then<TranslationOutcome, TranslationOutcome>(
+        const translationPromise = AggregationTranslation(captured.sourceText).then<TranslationOutcome, TranslationOutcome>(
             translatedText => ({
                 kind: "success",
                 translatedText,
@@ -294,8 +296,7 @@ async function providePendingTranslationHover(
 function createTranslationHover(translatedText: string): vscode.Hover {
     const content = new vscode.MarkdownString();
 
-    content.appendMarkdown("### Async Translation\n\n");
-    content.appendText(translatedText);
+    content.appendMarkdown(translatedText);
 
     return new vscode.Hover(content);
 }
@@ -319,27 +320,6 @@ function isCapturedHoverLocationValid(
     );
 }
 
-function findTranslatableContent(hovers: readonly vscode.Hover[]) {
-    for (const hover of hovers) {
-        const markdownParts: string[] = [];
-
-        for (const content of hover.contents) {
-            if (content instanceof vscode.MarkdownString) {
-                markdownParts.push(content.value);
-            }
-        }
-
-        const sourceText = markdownParts.join("\n\n");
-        const result = new TranslatableContentAnalyzer(sourceText).invoke();
-
-        if (result.isTranslatable) {
-            return result;
-        }
-    }
-
-    return undefined;
-}
-
 function createHoverKey(document: vscode.TextDocument, position: vscode.Position): string {
     return [document.uri.toString(), document.version, position.line, position.character].join(":");
 }
@@ -358,14 +338,6 @@ async function waitForNextEventLoop(): Promise<void> {
     await new Promise<void>(resolve => {
         setTimeout(resolve, 0);
     });
-}
-
-async function simulateTranslation(text: string): Promise<string> {
-    await new Promise<void>(resolve => {
-        setTimeout(resolve, 2000);
-    });
-
-    return `模拟翻译完成，共接收 ${text.length} 个字符。`;
 }
 
 function formatError(error: unknown): string {
