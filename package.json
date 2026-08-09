@@ -1,115 +1,119 @@
 {
-    "name": "floatingTranslation",
-    "displayName": "FloatingTranslation",
-    "description": "",
-    "version": "0.0.1",
-    "license": "MIT",
-    "engines": {
-        "vscode": "^1.125.0"
-    },
-    "categories": [
-        "Other"
-    ],
-    "activationEvents": [
-        "onStartupFinished"
-    ],
-    "main": "./dist/extension.js",
-    "contributes": {
-        "commands": [
-            {
-                "command": "floatingTranslation.trigger",
-                "title": "Floating Translation: trigger"
+   "name": "floatingTranslation",
+   "displayName": "FloatingTranslation",
+   "description": "",
+   "version": "0.0.1",
+   "license": "MIT",
+   "engines": {
+      "vscode": "^1.125.0"
+   },
+   "categories": [
+      "Other"
+   ],
+   "activationEvents": [
+      "onStartupFinished"
+   ],
+   "main": "./dist/extension.js",
+   "contributes": {
+      "commands": [
+         {
+            "command": "floatingTranslation.trigger",
+            "title": "Floating Translation: trigger"
+         }
+      ],
+      "keybindings": [
+         {
+            "command": "floatingTranslation.trigger",
+            "key": "ctrl+alt+t"
+         }
+      ],
+      "configuration": {
+         "title": "Floating Translation",
+         "properties": {
+            "floatingTranslation.translationTool": {
+               "type": "string",
+               "enum": [
+                  "aliyun"
+               ],
+               "enumItemLabels": [
+                  "阿里云"
+               ],
+               "default": "aliyun",
+               "scope": "application",
+               "description": "当前使用的翻译平台。",
+               "order": 0
+            },
+            "floatingTranslation.apiKey": {
+               "type": "string",
+               "default": "",
+               "scope": "application",
+               "markdownDescription": "翻译平台的 API Key。该值会以普通 VS Code 设置存储，请勿提交到版本控制。",
+               "order": 1
+            },
+            "floatingTranslation.secretKey": {
+               "type": "string",
+               "default": "",
+               "scope": "application",
+               "markdownDescription": "翻译平台的 Secret Key。该值会以普通 VS Code 设置存储，请勿提交到版本控制。",
+               "order": 2
+            },
+            "floatingTranslation.sourceLanguage": {
+               "type": "string",
+               "default": "auto",
+               "scope": "application",
+               "description": "待翻译文本的原语言代码。",
+               "order": 3
+            },
+            "floatingTranslation.targetLanguage": {
+               "type": "string",
+               "default": "",
+               "scope": "application",
+               "markdownDescription": "译文的目标语言代码。留空时使用 VS Code 当前的显示语言。",
+               "order": 4
+            },
+            "floatingTranslation.customPrompt": {
+               "type": "string",
+               "default": "",
+               "scope": "application",
+               "description": "未来接入 AI 翻译平台时使用的自定义提示词。",
+               "order": 999
             }
-        ],
-        "keybindings": [
-            {
-                "command": "floatingTranslation.trigger",
-                "key": "ctrl+alt+t"
-            }
-        ],
-        "configuration": {
-            "title": "Floating Translation",
-            "properties": {
-                "floatingTranslation.translationTool": {
-                    "type": "string",
-                    "enum": [
-                        "aliyun"
-                    ],
-                    "enumItemLabels": [
-                        "阿里云"
-                    ],
-                    "default": "aliyun",
-                    "scope": "application",
-                    "description": "当前使用的翻译平台。",
-                    "order": 0
-                },
-                "floatingTranslation.apiKey": {
-                    "type": "string",
-                    "default": "",
-                    "scope": "application",
-                    "markdownDescription": "翻译平台的 API Key。该值会以普通 VS Code 设置存储，请勿提交到版本控制。",
-                    "order": 1
-                },
-                "floatingTranslation.secretKey": {
-                    "type": "string",
-                    "default": "",
-                    "scope": "application",
-                    "markdownDescription": "翻译平台的 Secret Key。该值会以普通 VS Code 设置存储，请勿提交到版本控制。",
-                    "order": 2
-                },
-                "floatingTranslation.sourceLanguage": {
-                    "type": "string",
-                    "default": "auto",
-                    "scope": "application",
-                    "description": "待翻译文本的原语言代码。",
-                    "order": 3
-                },
-                "floatingTranslation.targetLanguage": {
-                    "type": "string",
-                    "default": "",
-                    "scope": "application",
-                    "markdownDescription": "译文的目标语言代码。留空时使用 VS Code 当前的显示语言。",
-                    "order": 4
-                },
-                "floatingTranslation.customPrompt": {
-                    "type": "string",
-                    "default": "",
-                    "scope": "application",
-                    "description": "未来接入 AI 翻译平台时使用的自定义提示词。",
-                    "order": 999
-                }
-            }
-        }
-    },
-    "scripts": {
-        "vscode:prepublish": "npm run package",
-        "compile": "webpack",
-        "watch": "webpack --watch",
-        "package": "webpack --mode production --devtool hidden-source-map",
-        "compile-tests": "tsc -p . --outDir out",
-        "watch-tests": "tsc -p . -w --outDir out",
-        "pretest": "npm run compile-tests && npm run compile && npm run lint",
-        "lint": "eslint src",
-        "test": "vscode-test"
-    },
-    "devDependencies": {
-        "@types/mocha": "^10.0.10",
-        "@types/node": "^26.1.2",
-        "@types/vscode": "^1.125.0",
-        "@vscode/test-cli": "^0.0.15",
-        "@vscode/test-electron": "^3.0.0",
-        "eslint": "^10.5.0",
-        "ts-loader": "^9.6.2",
-        "typescript": "^6.0.3",
-        "typescript-eslint": "^8.61.1",
-        "webpack": "^5.107.2",
-        "webpack-cli": "^7.0.3"
-    },
-    "overrides": {
-        "diff": "^8.0.4",
-        "serialize-javascript": "^7.0.6"
-    },
-    "dependencies": {
-        "@alicloud/alimt20181012": "^1.4.2"
-    }
+         }
+      }
+   },
+   "scripts": {
+      "vscode:prepublish": "npm run package",
+      "compile": "webpack",
+      "watch": "webpack --watch",
+      "package": "webpack --mode production --devtool hidden-source-map",
+      "compile-tests": "tsc -p . --outDir out",
+      "watch-tests": "tsc -p . -w --outDir out",
+      "pretest": "npm run compile-tests && npm run compile && npm run lint",
+      "lint": "eslint src",
+      "format": "prettier . --write",
+      "format:check": "prettier . --check",
+      "test": "vscode-test"
+   },
+   "devDependencies": {
+      "@types/mocha": "^10.0.10",
+      "@types/node": "^26.1.2",
+      "@types/vscode": "^1.125.0",
+      "@vscode/test-cli": "^0.0.15",
+      "@vscode/test-electron": "^3.0.0",
+      "eslint": "^10.5.0",
+      "eslint-config-prettier": "^10.1.8",
+      "prettier": "^3.9.6",
+      "ts-loader": "^9.6.2",
+      "typescript": "^6.0.3",
+      "typescript-eslint": "^8.61.1",
+      "webpack": "^5.107.2",
+      "webpack-cli": "^7.0.3"
+   },
+   "overrides": {
+      "diff": "^8.0.4",
+      "serialize-javascript": "^7.0.6"
+   },
+   "dependencies": {
+      "@alicloud/alimt20181012": "^1.4.2"
+   }
 }

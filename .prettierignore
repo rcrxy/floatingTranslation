@@ -1,0 +1,13 @@
+package.json
+package-lock.json
+
+.vscode/**
+out/**
+dist/**
+
+*.config.js
+*.config.cjs
+*.config.mjs
+*.config.ts
+tsconfig*.json
+.prettierrc*
