@@ -1,19 +1,17 @@
 import * as vscode from "vscode";
 import { output } from "./Utils/output";
-import { TranslatableContentAnalyzer } from "./Utils/TranslatableContentAnalyzer";
+import { TranslatableContentAnalyzer, type TranslatableContent } from "./Utils/TranslatableContentAnalyzer";
 import { AggregationTranslation } from "./AggregationTranslation";
 
 const running = new Set<string>();
 
 interface CapturedHover {
    readonly key: string;
-   readonly contentKey?: string;
+   readonly contentKey: string;
    readonly documentUri: string;
    readonly documentVersion: number;
    readonly position: vscode.Position;
-   readonly language?: string;
-   readonly sourceContents?: readonly string[];
-   readonly sourceText?: string;
+   readonly contents: readonly TranslatableContent[];
 }
 
 type TranslationOutcome =
@@ -94,26 +92,24 @@ export function activate(context: vscode.ExtensionContext): void {
                }
 
                const analysis = new TranslatableContentAnalyzer(hovers).invoke();
-               const sourceText = analysis?.contents.join("\n\n");
 
                capturedHover = {
                   key,
-                  contentKey: analysis?.key,
+                  contentKey: analysis.key,
                   documentUri: document.uri.toString(),
                   documentVersion: document.version,
                   position,
-                  language: analysis?.language,
-                  sourceContents: analysis?.contents,
-                  sourceText,
+                  contents: analysis.contents,
                };
 
-               if (analysis) {
-                  output.appendLine(
-                     `已缓存可翻译 Hover，语言：${analysis.language}，内容数：${analysis.contents.length}，Key：${analysis.key}`,
+               if (analysis.isTranslatable) {
+                  const valueCount = analysis.contents.reduce(
+                     (count, content) => count + content.value.filter((value) => value.isTranslatable).length,
+                     0,
                   );
-                  output.appendLine(`原文内容：\n${sourceText}`);
-               } else {
-                  // output.appendLine("当前 Hover 未包含带语言标记的 Markdown 代码围栏");
+
+                  output.appendLine(`已缓存可翻译 Hover，内容数：${valueCount}，Key：${analysis.key}`);
+                  output.appendLine(`原文内容：\n${analysis.contents.map((content) => content.sourceText).join("\n\n")}`);
                }
 
                // 自然 Hover 由原始语言服务负责显示。
@@ -139,7 +135,7 @@ export function activate(context: vscode.ExtensionContext): void {
          return;
       }
 
-      if (!isCapturedHoverValid(editor, captured)) {
+      if (!captured || !isCapturedHoverValid(editor, captured)) {
          translationState = { kind: "idle" };
 
          if (isCapturedHoverLocationValid(editor, captured)) {
@@ -169,7 +165,10 @@ export function activate(context: vscode.ExtensionContext): void {
 
       const requestId = ++nextRequestId;
 
-      const translationPromise = AggregationTranslation(captured.sourceText).then<TranslationOutcome, TranslationOutcome>(
+      output.appendLine(`开始异步翻译，原文长度：${getTranslatableSourceLength(captured.contents)}`);
+      output.appendLine(`转换后待翻译内容：\n${getTranslatableSourceText(captured.contents)}`);
+
+      const translationPromise = AggregationTranslation(captured.contents).then<TranslationOutcome, TranslationOutcome>(
          (translatedText) => ({
             kind: "success",
             translatedText,
@@ -195,8 +194,6 @@ export function activate(context: vscode.ExtensionContext): void {
          new vscode.Range(targetPosition, targetPosition),
          vscode.TextEditorRevealType.InCenterIfOutsideViewport,
       );
-
-      output.appendLine(`开始异步翻译，原文长度：${captured.sourceText.length}`);
 
       try {
          const progressPromise = vscode.window.withProgress(
@@ -301,11 +298,11 @@ function createTranslationHover(translatedText: string): vscode.Hover {
    return new vscode.Hover(content);
 }
 
-function isCapturedHoverValid(
-   editor: vscode.TextEditor | undefined,
-   captured: CapturedHover | undefined,
-): captured is CapturedHover & { readonly sourceText: string } {
-   return Boolean(captured?.sourceText && isCapturedHoverLocationValid(editor, captured));
+function isCapturedHoverValid(editor: vscode.TextEditor | undefined, captured: CapturedHover): boolean {
+   return Boolean(
+      captured.contents.some((content) => content.value.some((value) => value.isTranslatable)) &&
+      isCapturedHoverLocationValid(editor, captured),
+   );
 }
 
 function isCapturedHoverLocationValid(
@@ -322,6 +319,23 @@ function isCapturedHoverLocationValid(
 
 function createHoverKey(document: vscode.TextDocument, position: vscode.Position): string {
    return [document.uri.toString(), document.version, position.line, position.character].join(":");
+}
+
+function getTranslatableSourceLength(contents: readonly TranslatableContent[]): number {
+   return contents.reduce(
+      (contentLength, content) =>
+         contentLength +
+         content.value.reduce((valueLength, value) => valueLength + (value.isTranslatable ? value.text.length : 0), 0),
+      0,
+   );
+}
+
+function getTranslatableSourceText(contents: readonly TranslatableContent[]): string {
+   return contents
+      .flatMap((content) => content.value)
+      .filter((value) => value.isTranslatable)
+      .map((value) => value.text)
+      .join("\n\n");
 }
 
 async function reopenHover(): Promise<void> {
