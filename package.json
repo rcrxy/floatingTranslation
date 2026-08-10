@@ -1,9 +1,10 @@
 {
-   "name": "floatingTranslation",
-   "displayName": "FloatingTranslation",
-   "description": "",
+   "name": "floating-translation",
+   "displayName": "Floating Translation",
+   "description": "Translate VS Code hover documentation through configurable translation services.",
    "version": "0.0.1",
-   "license": "MIT",
+   "publisher": "zeco",
+   "license": "SEE LICENSE IN LICENSE",
    "engines": {
       "vscode": "^1.125.0"
    },
@@ -19,6 +20,14 @@
          {
             "command": "floatingTranslation.trigger",
             "title": "Floating Translation: trigger"
+         },
+         {
+            "command": "floatingTranslation.configureCredentials",
+            "title": "Floating Translation: Configure Credentials"
+         },
+         {
+            "command": "floatingTranslation.clearCredentials",
+            "title": "Floating Translation: Clear Credentials"
          }
       ],
       "keybindings": [
@@ -30,7 +39,7 @@
       "configuration": {
          "title": "Floating Translation",
          "properties": {
-            "floatingTranslation.translationTool": {
+            "floating-translation.translationTool": {
                "type": "string",
                "enum": [
                   "aliyun"
@@ -43,35 +52,50 @@
                "description": "当前使用的翻译平台。",
                "order": 0
             },
-            "floatingTranslation.apiKey": {
+            "floating-translation.credentialStorage": {
                "type": "string",
-               "default": "",
+               "enum": [
+                  "settings",
+                  "secretStorage"
+               ],
+               "enumItemLabels": [
+                  "明文设置",
+                  "加密存储"
+               ],
+               "default": "settings",
                "scope": "application",
-               "markdownDescription": "翻译平台的 API Key。该值会以普通 VS Code 设置存储，请勿提交到版本控制。",
+               "markdownDescription": "API Key 和 Secret Key 的读写方式。选择加密存储后，请执行 `Floating Translation: Configure Credentials` 写入凭据。",
                "order": 1
             },
-            "floatingTranslation.secretKey": {
+            "floating-translation.apiKey": {
                "type": "string",
                "default": "",
                "scope": "application",
-               "markdownDescription": "翻译平台的 Secret Key。该值会以普通 VS Code 设置存储，请勿提交到版本控制。",
+               "markdownDescription": "翻译平台的 API Key。仅在凭据存储方式为明文设置时读取。该值会以普通 VS Code 设置存储，请勿提交到版本控制。",
                "order": 2
             },
-            "floatingTranslation.sourceLanguage": {
+            "floating-translation.secretKey": {
+               "type": "string",
+               "default": "",
+               "scope": "application",
+               "markdownDescription": "翻译平台的 Secret Key。仅在凭据存储方式为明文设置时读取。该值会以普通 VS Code 设置存储，请勿提交到版本控制。",
+               "order": 3
+            },
+            "floating-translation.sourceLanguage": {
                "type": "string",
                "default": "auto",
                "scope": "application",
                "description": "待翻译文本的原语言代码。",
-               "order": 3
+               "order": 4
             },
-            "floatingTranslation.targetLanguage": {
+            "floating-translation.targetLanguage": {
                "type": "string",
                "default": "",
                "scope": "application",
                "markdownDescription": "译文的目标语言代码。留空时使用 VS Code 当前的显示语言。",
-               "order": 4
+               "order": 5
             },
-            "floatingTranslation.customPrompt": {
+            "floating-translation.customPrompt": {
                "type": "string",
                "default": "",
                "scope": "application",
