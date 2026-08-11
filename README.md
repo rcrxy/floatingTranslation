@@ -5,12 +5,12 @@ FloatingTranslation 是一个用于验证 VS Code Hover 内容翻译方案的扩
 ## 当前功能
 
 - 通过快捷键主动开始翻译，不改变普通鼠标 Hover 的触发方式。
-- 支持翻译服务: 阿里云(aliyun)
+- 支持翻译服务：阿里云（`aliyun`）、百度翻译（`baidu`）。
 
 ## 使用方式
 
 1. 将鼠标移动到能够显示 Hover 的代码位置，等待原始 Hover 出现。
-2. 配置阿里云翻译凭据和语言代码。
+2. 选择翻译服务，并配置对应凭据和语言代码。
 3. 确认 Hover 内容满足下方的“内容识别规则”。
 4. 按 `Ctrl+Alt+T`，或从命令面板执行 `Floating Translation: trigger`。
 5. 扩展会回到最近捕获的 Hover 位置，重新打开 Hover，并在异步处理完成后追加翻译结果。
@@ -23,18 +23,19 @@ FloatingTranslation 是一个用于验证 VS Code Hover 内容翻译方案的扩
 - `floating-translation.sourceLanguage`：源语言代码，默认为 `auto`。
 - `floating-translation.targetLanguage`：目标语言代码；留空时使用 VS Code 当前显示语言。
 - `floating-translation.credentialStorage`：凭据存储方式，可选普通用户设置或 VS Code `SecretStorage`。
-- `floating-translation.apiKey` 和 `floating-translation.secretKey`：选择普通用户设置时使用的阿里云 AccessKey ID 和 AccessKey Secret。
+- `floating-translation.apiKey`：阿里云使用 AccessKey ID，百度翻译使用 APPID。
+- `floating-translation.secretKey`：阿里云使用 AccessKey Secret，百度翻译使用密钥。
 
 如果选择 `SecretStorage`，请从命令面板执行 `Floating Translation: Configure Credentials` 输入凭据。执行 `Floating Translation: Clear Credentials` 会同时清除普通用户设置和 `SecretStorage` 中的凭据。
 
-普通用户设置中的凭据以明文形式保存，不应提交到版本控制。待翻译文本会发送到阿里云服务，并可能产生费用；请根据实际数据处理要求核对服务条款、日志留存和合规要求。
+普通用户设置中的凭据以明文形式保存，不应提交到版本控制。待翻译文本会发送到当前选择的第三方翻译服务，并可能产生费用；请根据实际数据处理要求核对服务条款、日志留存和合规要求。
 
 ## 内容识别规则
 
 当前版本会汇总最近一次 Hover 位置上各个 Hover Provider 返回的内容，并按以下规则处理：
 
 - 不要求 Hover 以代码围栏开头；任意包含自然语言字母的 Markdown 段落都可能成为待翻译内容。
-- 普通段落按空行和部分块级 Markdown 结构拆分，每个可翻译片段单独请求翻译服务，并按原顺序串行处理。
+- 普通段落按空行和部分块级 Markdown 结构拆分，每个可翻译片段单独请求翻译服务；适配器批量发起请求并按原顺序返回结果。
 - 带语言标记或不带语言标记的 Markdown 代码围栏均按原文保留，不发送到翻译服务。
 - 链接定义、分隔线、缩进代码和未闭合的代码围栏按原文保留。
 - 行内代码、图片、链接、删除线、粗体、斜体、转义字符、URL、文件路径、命令参数以及部分常见代码标识符会替换为占位符；译文返回后再恢复原内容。

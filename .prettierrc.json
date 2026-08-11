@@ -2,5 +2,11 @@
    "useTabs": false,
    "tabWidth": 3,
    "printWidth": 128,
-   "singleQuote": false
+   "singleQuote": false,
+   "endOfLine": "lf",
+   "embeddedLanguageFormatting": "auto",
+   "jsxSingleQuote": false,
+   "arrowParens": "always",
+   "bracketSameLine": true,
+   "bracketSpacing": false
 }

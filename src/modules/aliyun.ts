@@ -35,14 +35,8 @@ export class AliyunTranslation {
       this.accessKeySecret = options.accessKeySecret.trim();
    }
 
-   /** 翻译一段非空文本，并把异常响应转换为明确的错误。 */
-   public async invoke(text: string): Promise<string> {
-      const sourceText = text.trim();
-
-      if (!sourceText) {
-         throw new Error("阿里云翻译的待翻译文本不能为空");
-      }
-
+   /** 并发翻译多段非空文本，返回结果顺序与输入文本顺序一致。 */
+   public async invoke(texts: readonly string[]): Promise<string[]> {
       if (!this.accessKeyId || !this.accessKeySecret) {
          throw new Error("请先配置阿里云 AccessKey ID 和 AccessKey Secret");
       }
@@ -54,34 +48,45 @@ export class AliyunTranslation {
             endpoint,
          }),
       );
-      const request = new TranslateGeneralRequest({
-         formatType: "text",
-         scene: "general",
-         sourceLanguage: this.sourceLanguage,
-         sourceText,
-         targetLanguage: this.targetLanguage,
-      });
-      const response = await client.translateGeneral(request);
-      const responseBody = response.body;
 
-      // SDK 同时暴露 HTTP 状态和业务状态，两层都成功才接受译文。
-      if (response.statusCode !== 200) {
-         throw new Error(`阿里云翻译请求失败，HTTP 状态码：${response.statusCode ?? "未知"}`);
-      }
+      return Promise.all(
+         texts.map(async (text) => {
+            const sourceText = text.trim();
 
-      if (responseBody?.code !== 200) {
-         throw new Error(
-            `阿里云翻译请求失败，错误码：${responseBody?.code ?? "未知"}，错误信息：${responseBody?.message ?? "未知"}`,
-         );
-      }
+            if (!sourceText) {
+               throw new Error("阿里云翻译的待翻译文本不能为空");
+            }
 
-      const translatedText = responseBody.data?.translated;
+            const request = new TranslateGeneralRequest({
+               formatType: "text",
+               scene: "general",
+               sourceLanguage: this.sourceLanguage,
+               sourceText,
+               targetLanguage: this.targetLanguage,
+            });
+            const response = await client.translateGeneral(request);
+            const responseBody = response.body;
 
-      if (!translatedText) {
-         throw new Error("阿里云翻译响应中未包含译文");
-      }
+            // SDK 同时暴露 HTTP 状态和业务状态，两层都成功才接受译文。
+            if (response.statusCode !== 200) {
+               throw new Error(`阿里云翻译请求失败，HTTP 状态码：${response.statusCode ?? "未知"}`);
+            }
 
-      return translatedText;
+            if (responseBody?.code !== 200) {
+               throw new Error(
+                  `阿里云翻译请求失败，错误码：${responseBody?.code ?? "未知"}，错误信息：${responseBody?.message ?? "未知"}`,
+               );
+            }
+
+            const translatedText = responseBody.data?.translated;
+
+            if (!translatedText) {
+               throw new Error("阿里云翻译响应中未包含译文");
+            }
+
+            return translatedText;
+         }),
+      );
    }
 
    /** 将 VS Code/BCP 47 语言标记归一化为阿里云当前使用的语言代码。 */

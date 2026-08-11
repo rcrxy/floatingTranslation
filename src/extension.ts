@@ -131,8 +131,9 @@ export function activate(context: vscode.ExtensionContext): void {
                      0,
                   );
 
-                  output.appendLine(`已缓存可翻译 Hover，内容数：${valueCount}，Key：${analysis.key}`);
-                  output.appendLine(`原文内容：\n${analysis.contents.map((content) => content.sourceText).join("\n\n")}`);
+                  output.appendLine(
+                     `---------- 原文内容 ---------- \n${analysis.contents.map((content) => content.sourceText).join("\n\n")}`,
+                  );
                }
 
                // 返回 undefined，让自然 Hover 仍由原始语言服务负责显示。
@@ -189,7 +190,7 @@ export function activate(context: vscode.ExtensionContext): void {
       const requestId = ++nextRequestId;
 
       output.appendLine(`开始异步翻译，原文长度：${getTranslatableSourceLength(captured.contents)}`);
-      output.appendLine(`转换后待翻译内容：\n${getTranslatableSourceText(captured.contents)}`);
+      output.appendLine(`---------- 转换后待翻译内容 ----------\n${getTranslatableSourceText(captured.contents)}`);
 
       // 把 rejection 转为结果值，使命令和 Hover Provider 能安全等待同一个 Promise。
       const translationPromise = AggregationTranslation(captured.contents, configTool).then<
@@ -295,34 +296,39 @@ export function activate(context: vscode.ExtensionContext): void {
 
    // 输入框只负责收集凭据，实际存储位置由 ConfigTool 根据用户设置决定。
    const configureCredentialsCommand = vscode.commands.registerCommand("floatingTranslation.configureCredentials", async () => {
-      const accessKeyId = await vscode.window.showInputBox({
-         title: "配置阿里云翻译凭据",
-         prompt: "请输入 AccessKey ID",
+      const translationTool = configTool.getSelect("translationTool");
+      const credentialLabels =
+         translationTool === "baidu"
+            ? {service: "百度翻译", apiKey: "APPID", secretKey: "密钥"}
+            : {service: "阿里云翻译", apiKey: "AccessKey ID", secretKey: "AccessKey Secret"};
+      const apiKey = await vscode.window.showInputBox({
+         title: `配置${credentialLabels.service}凭据`,
+         prompt: `请输入 ${credentialLabels.apiKey}`,
          password: true,
          ignoreFocusOut: true,
       });
 
-      if (accessKeyId === undefined) {
+      if (apiKey === undefined) {
          return;
       }
 
-      const accessKeySecret = await vscode.window.showInputBox({
-         title: "配置阿里云翻译凭据",
-         prompt: "请输入 AccessKey Secret",
+      const secretKey = await vscode.window.showInputBox({
+         title: `配置${credentialLabels.service}凭据`,
+         prompt: `请输入 ${credentialLabels.secretKey}`,
          password: true,
          ignoreFocusOut: true,
       });
 
-      if (accessKeySecret === undefined) {
+      if (secretKey === undefined) {
          return;
       }
 
-      await configTool.set("apiKey", accessKeyId);
-      await configTool.set("secretKey", accessKeySecret);
+      await configTool.set("apiKey", apiKey);
+      await configTool.set("secretKey", secretKey);
 
       const storageLabel = configTool.getSelect("credentialStorage") === "secretStorage" ? "加密存储" : "明文设置";
 
-      void vscode.window.showInformationMessage(`阿里云翻译凭据已写入${storageLabel}`);
+      void vscode.window.showInformationMessage(`${credentialLabels.service}凭据已写入${storageLabel}`);
    });
    // 清理命令同时覆盖两种存储，避免切换模式后旧凭据重新生效。
    const clearCredentialsCommand = vscode.commands.registerCommand("floatingTranslation.clearCredentials", async () => {
