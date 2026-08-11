@@ -54,6 +54,31 @@
                "description": "当前使用的翻译平台。",
                "order": 0
             },
+            "floating-translation.translationMode": {
+               "type": "string",
+               "enum": [
+                  "fullText",
+                  "codeBlocks",
+                  "remotePlaceholders",
+                  "localPlaceholders"
+               ],
+               "enumItemLabels": [
+                  "全文直译",
+                  "代码块保护",
+                  "占位符保护（平台回传）",
+                  "占位符保护（本地隔离）"
+               ],
+               "enumDescriptions": [
+                  "将完整 Hover Markdown 发送给翻译服务，不保护代码或格式。",
+                  "保留围栏代码块和缩进代码，其余原始 Markdown 发送给翻译服务。",
+                  "将占位符随正文发送给翻译服务，保留句子上下文，但部分平台可能修改占位符。",
+                  "占位符仅保留在本地，只发送占位符之间的自然语言，保护最可靠但会减少上下文，降低翻译准确性。"
+               ],
+               "default": "codeBlocks",
+               "scope": "application",
+               "description": "控制发送给翻译服务的内容范围和受保护内容的处理方式。",
+               "order": 1
+            },
             "floating-translation.credentialStorage": {
                "type": "string",
                "enum": [
@@ -67,35 +92,35 @@
                "default": "settings",
                "scope": "application",
                "markdownDescription": "API Key 和 Secret Key 的读写方式。选择加密存储后，请执行 `Floating Translation: Configure Credentials` 写入凭据。",
-               "order": 1
+               "order": 2
             },
             "floating-translation.apiKey": {
                "type": "string",
                "default": "",
                "scope": "application",
                "markdownDescription": "翻译平台的公开标识。阿里云使用 AccessKey ID，百度翻译使用 APPID。仅在凭据存储方式为明文设置时读取。该值会以普通 VS Code 设置存储，请勿提交到版本控制。",
-               "order": 2
+               "order": 3
             },
             "floating-translation.secretKey": {
                "type": "string",
                "default": "",
                "scope": "application",
                "markdownDescription": "翻译平台的私密凭据。阿里云使用 AccessKey Secret，百度翻译使用密钥。仅在凭据存储方式为明文设置时读取。该值会以普通 VS Code 设置存储，请勿提交到版本控制。",
-               "order": 3
+               "order": 4
             },
             "floating-translation.sourceLanguage": {
                "type": "string",
                "default": "auto",
                "scope": "application",
                "description": "待翻译文本的原语言代码。",
-               "order": 4
+               "order": 5
             },
             "floating-translation.targetLanguage": {
                "type": "string",
                "default": "",
                "scope": "application",
                "markdownDescription": "译文的目标语言代码。留空时使用 VS Code 当前的显示语言。",
-               "order": 5
+               "order": 6
             },
             "floating-translation.customPrompt": {
                "type": "string",

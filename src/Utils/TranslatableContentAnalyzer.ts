@@ -31,7 +31,7 @@ export type TranslatableContentValue = {
 
 /** 翻译前临时替换受保护内容的占位符。 */
 export type TranslationPlaceholder = {
-   /** 发送给翻译服务的唯一临时标记。 */
+   /** 唯一临时标记；是否发送给翻译服务由当前翻译尺度决定。 */
    readonly token: string;
    /** 完成翻译后需要原样恢复的内容。 */
    readonly source: string;
@@ -52,7 +52,7 @@ const headingPattern = /^ {0,3}#{1,6}[ \t]+(.*)$/;
 const blockQuotePattern = /^ {0,3}>[ \t]?(.*)$/;
 const definitionPattern = /^ {0,3}\[[^\]]+\]:[ \t]*\S+/;
 const thematicBreakPattern = /^ {0,3}(?:(?:\*[ \t]*){3,}|(?:_[ \t]*){3,}|(?:-[ \t]*){3,})$/;
-// 占位符格式固定，便于检测翻译服务篡改、复制或凭空生成的标记。
+// 占位符格式固定，便于校验平台回传或本地重建后的标记。
 const placeholderPattern = /\{\{\d{10}:\d{4,}\}\}/g;
 
 /**

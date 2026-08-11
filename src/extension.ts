@@ -1,8 +1,8 @@
 import * as vscode from "vscode";
-import { ConfigTool } from "./Utils/ConfigTool";
+import {ConfigTool, normalizeTranslationMode, type TranslationMode} from "./Utils/ConfigTool";
 import { output } from "./Utils/output";
 import { TranslatableContentAnalyzer, type TranslatableContent } from "./Utils/TranslatableContentAnalyzer";
-import { AggregationTranslation } from "./AggregationTranslation";
+import {AggregationTranslation, hasTranslatableContent} from "./AggregationTranslation";
 
 // executeHoverProvider 会回调本扩展的 Provider，用位置键阻断同一次递归调用。
 const running = new Set<string>();
@@ -115,6 +115,7 @@ export function activate(context: vscode.ExtensionContext): void {
                }
 
                const analysis = new TranslatableContentAnalyzer(hovers).invoke();
+               const translationMode = normalizeTranslationMode(configTool.getSelect("translationMode"));
 
                capturedHover = {
                   key,
@@ -125,7 +126,7 @@ export function activate(context: vscode.ExtensionContext): void {
                   contents: analysis.contents,
                };
 
-               if (analysis.isTranslatable) {
+               if (hasTranslatableContent(analysis.contents, translationMode)) {
                   const valueCount = analysis.contents.reduce(
                      (count, content) => count + content.value.filter((value) => value.isTranslatable).length,
                      0,
@@ -155,11 +156,12 @@ export function activate(context: vscode.ExtensionContext): void {
    const triggerCommand = vscode.commands.registerCommand("floatingTranslation.trigger", async () => {
       const editor = vscode.window.activeTextEditor;
       const captured = capturedHover;
+      const translationMode = normalizeTranslationMode(configTool.getSelect("translationMode"));
 
       if (!editor) return;
 
-      if (!captured || !isCapturedHoverValid(editor, captured)) {
-         translationState = { kind: "idle" };
+      if (!captured || !isCapturedHoverValid(editor, captured, translationMode)) {
+         translationState = {kind: "idle"};
 
          if (isCapturedHoverLocationValid(editor, captured)) {
             // 内容不可翻译时仍回到捕获位置，便于用户看到原始 Hover。
@@ -189,8 +191,10 @@ export function activate(context: vscode.ExtensionContext): void {
 
       const requestId = ++nextRequestId;
 
-      output.appendLine(`开始异步翻译，原文长度：${getTranslatableSourceLength(captured.contents)}`);
-      output.appendLine(`---------- 转换后待翻译内容 ----------\n${getTranslatableSourceText(captured.contents)}`);
+      output.appendLine(`开始异步翻译，原文长度：${getTranslatableSourceLength(captured.contents, translationMode)}`);
+      output.appendLine(
+         `---------- 转换后待翻译内容 ----------\n${getTranslatableSourceText(captured.contents, translationMode)}`,
+      );
 
       // 把 rejection 转为结果值，使命令和 Hover Provider 能安全等待同一个 Promise。
       const translationPromise = AggregationTranslation(captured.contents, configTool).then<
@@ -385,11 +389,12 @@ function createTranslationHover(translatedText: string): vscode.Hover {
 }
 
 /** 检查缓存是否包含可翻译片段且仍属于当前文档版本。 */
-function isCapturedHoverValid(editor: vscode.TextEditor | undefined, captured: CapturedHover): boolean {
-   return Boolean(
-      captured.contents.some((content) => content.value.some((value) => value.isTranslatable)) &&
-      isCapturedHoverLocationValid(editor, captured),
-   );
+function isCapturedHoverValid(
+   editor: vscode.TextEditor | undefined,
+   captured: CapturedHover,
+   translationMode: TranslationMode,
+): boolean {
+   return hasTranslatableContent(captured.contents, translationMode) && isCapturedHoverLocationValid(editor, captured);
 }
 
 /** 仅验证缓存的位置上下文，并通过类型谓词收窄 captured。 */
@@ -411,7 +416,11 @@ function createHoverKey(document: vscode.TextDocument, position: vscode.Position
 }
 
 /** 统计实际会发送给翻译服务的字符数。 */
-function getTranslatableSourceLength(contents: readonly TranslatableContent[]): number {
+function getTranslatableSourceLength(contents: readonly TranslatableContent[], translationMode: TranslationMode): number {
+   if (translationMode === "fullText" || translationMode === "codeBlocks") {
+      return contents.reduce((length, content) => length + content.sourceText.length, 0);
+   }
+
    return contents.reduce(
       (contentLength, content) =>
          contentLength +
@@ -421,7 +430,11 @@ function getTranslatableSourceLength(contents: readonly TranslatableContent[]): 
 }
 
 /** 拼接实际会发送给翻译服务的文本，仅用于诊断输出。 */
-function getTranslatableSourceText(contents: readonly TranslatableContent[]): string {
+function getTranslatableSourceText(contents: readonly TranslatableContent[], translationMode: TranslationMode): string {
+   if (translationMode === "fullText" || translationMode === "codeBlocks") {
+      return contents.map((content) => content.sourceText).join("\n\n");
+   }
+
    return contents
       .flatMap((content) => content.value)
       .filter((value) => value.isTranslatable)

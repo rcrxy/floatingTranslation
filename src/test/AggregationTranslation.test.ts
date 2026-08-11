@@ -1,9 +1,9 @@
 import * as assert from "node:assert/strict";
-import {translateContents} from "../AggregationTranslation";
+import {hasTranslatableContent, translateContents} from "../AggregationTranslation";
 import type {TranslatableContent, TranslationPlaceholder} from "../Utils/TranslatableContentAnalyzer";
 
 suite("AggregationTranslation", () => {
-   test("占位符不发送给翻译服务并按原顺序恢复", async () => {
+   test("本地占位符保护不发送 token 并按原顺序恢复", async () => {
       const placeholders = new Map<string, TranslationPlaceholder>([
          ["param", {token: "{{0761565856:0001}}", source: "*@param*"}],
          ["command", {token: "{{0761565856:0000}}", source: "`command`"}],
@@ -41,12 +41,16 @@ suite("AggregationTranslation", () => {
       ];
       const requestedTexts: string[] = [];
 
-      const translatedText = await translateContents(contents, async (sourceTexts) => {
-         requestedTexts.push(...sourceTexts);
+      const translatedText = await translateContents(
+         contents,
+         async (sourceTexts) => {
+            requestedTexts.push(...sourceTexts);
 
-         // 模拟百度曾出现的行为：若收到花括号占位符，就会破坏其格式。
-         return sourceTexts.map((sourceText) => sourceText.replace(/\{\{(\d+):(\d+)\}\}/g, "{{$1 $2}"));
-      });
+            // 模拟百度曾出现的行为：若收到花括号占位符，就会破坏其格式。
+            return sourceTexts.map((sourceText) => sourceText.replace(/\{\{(\d+):(\d+)\}\}/g, "{{$1 $2}"));
+         },
+         "localPlaceholders",
+      );
 
       assert.ok(requestedTexts.length > 0);
       assert.ok(requestedTexts.every((sourceText) => !sourceText.includes("{{")));
@@ -69,6 +73,78 @@ suite("AggregationTranslation", () => {
       }
    });
 
+   test("平台回传占位符模式发送 token 并在返回后恢复", async () => {
+      const token = "{{0761565856:0000}}";
+      const contents: readonly TranslatableContent[] = [
+         {
+            sourceText: "The `command` identifier.",
+            value: [createValue(`The ${token} identifier.`, {token, source: "`command`"})],
+         },
+      ];
+      let requestedTexts: readonly string[] = [];
+
+      const translatedText = await translateContents(
+         contents,
+         async (sourceTexts) => {
+            requestedTexts = sourceTexts;
+            return [`${token} 标识符。`];
+         },
+         "remotePlaceholders",
+      );
+
+      assert.deepEqual(requestedTexts, [`The ${token} identifier.`]);
+      assert.equal(translatedText, "`command` 标识符。");
+   });
+
+   test("全文直译发送完整原始 Markdown", async () => {
+      const sourceText = "Description.\n\n```ts\nconst value = 1;\n```";
+      const contents: readonly TranslatableContent[] = [
+         {
+            sourceText,
+            value: [createValue("Description.")],
+         },
+      ];
+      let requestedTexts: readonly string[] = [];
+
+      const translatedText = await translateContents(
+         contents,
+         async (sourceTexts) => {
+            requestedTexts = sourceTexts;
+            return ["完整译文"];
+         },
+         "fullText",
+      );
+
+      assert.deepEqual(requestedTexts, [sourceText]);
+      assert.equal(translatedText, "完整译文");
+      assert.equal(hasTranslatableContent(contents, "fullText"), true);
+   });
+
+   test("代码块保护只翻译围栏外正文并保持代码原位", async () => {
+      const sourceText = "Before.\n\n```ts\nconst value = 1;\n```\n\nAfter.";
+      const contents: readonly TranslatableContent[] = [
+         {
+            sourceText,
+            value: [createValue("Before."), createValue("After.")],
+         },
+      ];
+      let requestedTexts: readonly string[] = [];
+
+      const translatedText = await translateContents(
+         contents,
+         async (sourceTexts) => {
+            requestedTexts = sourceTexts;
+            return ["之前。", "之后。"];
+         },
+         "codeBlocks",
+      );
+
+      assert.deepEqual(requestedTexts, ["Before.", "After."]);
+      assert.equal(translatedText, "之前。\n\n```ts\nconst value = 1;\n```\n\n之后。");
+      assert.equal(hasTranslatableContent(contents, "codeBlocks"), true);
+      assert.equal(hasTranslatableContent([{sourceText: "```ts\nconst value = 1;\n```", value: []}], "codeBlocks"), false);
+   });
+
    test("没有占位符时保持整段批量翻译", async () => {
       const contents: readonly TranslatableContent[] = [
          {
@@ -78,10 +154,14 @@ suite("AggregationTranslation", () => {
       ];
       let requestedTexts: readonly string[] = [];
 
-      const translatedText = await translateContents(contents, async (sourceTexts) => {
-         requestedTexts = sourceTexts;
-         return ["第一段。", "第二段。"];
-      });
+      const translatedText = await translateContents(
+         contents,
+         async (sourceTexts) => {
+            requestedTexts = sourceTexts;
+            return ["第一段。", "第二段。"];
+         },
+         "localPlaceholders",
+      );
 
       assert.deepEqual(requestedTexts, ["First paragraph.", "Second paragraph."]);
       assert.equal(translatedText, "第一段。\n\n第二段。");

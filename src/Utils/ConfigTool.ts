@@ -3,10 +3,15 @@ import * as vscode from "vscode";
 /** 凭据可存放在普通用户设置或 VS Code 提供的加密存储中。 */
 export type CredentialStorage = "settings" | "secretStorage";
 
+/** 控制发送给翻译服务的内容范围及受保护内容的处理位置。 */
+export type TranslationMode = "fullText" | "codeBlocks" | "remotePlaceholders" | "localPlaceholders";
+
 /** 扩展运行一次翻译所需的完整配置快照。 */
 export interface FloatingTranslationConfiguration {
    /** 当前选用的翻译服务标识。 */
    readonly translationTool: string;
+   /** 当前使用的内容翻译尺度。 */
+   readonly translationMode: TranslationMode;
    /** API 凭据的读取和写入位置。 */
    readonly credentialStorage: CredentialStorage;
    /** 翻译服务的公开访问密钥。 */
@@ -29,6 +34,7 @@ const credentialNames = new Set<ConfigurationName>(["apiKey", "secretKey"]);
 // 代码侧默认值与 package.json 保持一致，确保配置清单异常时仍有确定行为。
 const defaultValues: FloatingTranslationConfiguration = {
    translationTool: "aliyun",
+   translationMode: "localPlaceholders",
    credentialStorage: "settings",
    apiKey: "",
    secretKey: "",
@@ -47,19 +53,29 @@ export class ConfigTool {
 
    /** 读取一次翻译所需的全部配置，返回同一时刻可消费的配置快照。 */
    public async getAll(): Promise<FloatingTranslationConfiguration> {
-      const [translationTool, credentialStorage, apiKey, secretKey, sourceLanguage, targetLanguage, customPrompt] =
-         await this.many([
-            "translationTool",
-            "credentialStorage",
-            "apiKey",
-            "secretKey",
-            "sourceLanguage",
-            "targetLanguage",
-            "customPrompt",
-         ]);
+      const [
+         translationTool,
+         translationMode,
+         credentialStorage,
+         apiKey,
+         secretKey,
+         sourceLanguage,
+         targetLanguage,
+         customPrompt,
+      ] = await this.many([
+         "translationTool",
+         "translationMode",
+         "credentialStorage",
+         "apiKey",
+         "secretKey",
+         "sourceLanguage",
+         "targetLanguage",
+         "customPrompt",
+      ]);
 
       return {
          translationTool,
+         translationMode: normalizeTranslationMode(translationMode),
          credentialStorage: credentialStorage === "secretStorage" ? "secretStorage" : "settings",
          apiKey,
          secretKey,
@@ -133,5 +149,18 @@ export class ConfigTool {
    /** 所有普通设置统一写入用户级配置，避免凭据落入工作区文件。 */
    private async updateSetting(name: ConfigurationName, value: string): Promise<void> {
       await vscode.workspace.getConfiguration(configurationSection).update(name, value, vscode.ConfigurationTarget.Global);
+   }
+}
+
+/** 将未知设置值回退到不会把占位符发送给第三方服务的默认模式。 */
+export function normalizeTranslationMode(value: string): TranslationMode {
+   switch (value) {
+      case "fullText":
+      case "codeBlocks":
+      case "remotePlaceholders":
+      case "localPlaceholders":
+         return value;
+      default:
+         return "localPlaceholders";
    }
 }
