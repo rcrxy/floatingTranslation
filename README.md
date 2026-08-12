@@ -9,6 +9,8 @@ FloatingTranslation 是一个用于验证 VS Code Hover 内容翻译方案的扩
 
 ## 使用方式
 
+![FloatingTranslation 使用演示](resources/演示.gif)
+
 1. 将鼠标移动到能够显示 Hover 的代码位置，等待原始 Hover 出现。
 2. 选择翻译服务，并配置对应凭据和语言代码。
 3. 确认 Hover 内容满足下方的“内容识别规则”。
