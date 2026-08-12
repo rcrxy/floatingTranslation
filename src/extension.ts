@@ -115,7 +115,6 @@ export function activate(context: vscode.ExtensionContext): void {
                }
 
                const analysis = new TranslatableContentAnalyzer(hovers).invoke();
-               const translationMode = normalizeTranslationMode(configTool.getSelect("translationMode"));
 
                capturedHover = {
                   key,
@@ -125,17 +124,6 @@ export function activate(context: vscode.ExtensionContext): void {
                   position,
                   contents: analysis.contents,
                };
-
-               if (hasTranslatableContent(analysis.contents, translationMode)) {
-                  const valueCount = analysis.contents.reduce(
-                     (count, content) => count + content.value.filter((value) => value.isTranslatable).length,
-                     0,
-                  );
-
-                  output.appendLine(
-                     `---------- 原文内容 ---------- \n${analysis.contents.map((content) => content.sourceText).join("\n\n")}`,
-                  );
-               }
 
                // 返回 undefined，让自然 Hover 仍由原始语言服务负责显示。
                return undefined;
@@ -191,6 +179,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
       const requestId = ++nextRequestId;
 
+      output.appendLine(
+         `---------- 原文内容 ---------- \n${captured.contents.map((content) => content.sourceText).join("\n\n")}`,
+      );
       output.appendLine(`开始异步翻译，原文长度：${getTranslatableSourceLength(captured.contents, translationMode)}`);
       output.appendLine(
          `---------- 转换后待翻译内容 ----------\n${getTranslatableSourceText(captured.contents, translationMode)}`,
