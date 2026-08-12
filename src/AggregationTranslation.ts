@@ -40,8 +40,8 @@ export async function AggregationTranslation(
          const aliyun = new AliyunTranslation({
             sourceLanguage,
             targetLanguage,
-            accessKeyId: configuration.apiKey,
-            accessKeySecret: configuration.secretKey,
+            accessKeyId: configuration.aliyunAccessKeyId,
+            accessKeySecret: configuration.aliyunAccessKeySecret,
          });
          return translateContents(contents, (sourceTexts) => aliyun.invoke(sourceTexts), configuration.translationMode);
       }
@@ -49,8 +49,8 @@ export async function AggregationTranslation(
          const baidu = new BaiduTranslation({
             sourceLanguage,
             targetLanguage,
-            appId: configuration.apiKey,
-            appKey: configuration.secretKey,
+            appId: configuration.baiduAppId,
+            appKey: configuration.baiduAppKey,
          });
          return translateContents(contents, (sourceTexts) => baidu.invoke(sourceTexts), configuration.translationMode);
       }

@@ -92,36 +92,50 @@
                ],
                "default": "settings",
                "scope": "application",
-               "markdownDescription": "API Key 和 Secret Key 的读写方式。选择加密存储后，请执行 `Floating Translation: Configure Credentials` 写入凭据。",
+               "markdownDescription": "各翻译平台凭据的读写方式。选择加密存储后，请先选择翻译平台，再执行 `Floating Translation: Configure Credentials` 写入该平台凭据。",
                "order": 2
             },
-            "floating-translation.apiKey": {
+            "floating-translation.aliyunAccessKeyId": {
                "type": "string",
                "default": "",
                "scope": "application",
-               "markdownDescription": "翻译平台的公开标识。阿里云使用 AccessKey ID，百度翻译使用 APPID。仅在凭据存储方式为明文设置时读取。该值会以普通 VS Code 设置存储，请勿提交到版本控制。",
+               "markdownDescription": "阿里云 AccessKey ID。仅在凭据存储方式为明文设置时读取。该值会以普通 VS Code 设置存储，请勿提交到版本控制。",
                "order": 3
             },
-            "floating-translation.secretKey": {
+            "floating-translation.aliyunAccessKeySecret": {
                "type": "string",
                "default": "",
                "scope": "application",
-               "markdownDescription": "翻译平台的私密凭据。阿里云使用 AccessKey Secret，百度翻译使用密钥。仅在凭据存储方式为明文设置时读取。该值会以普通 VS Code 设置存储，请勿提交到版本控制。",
+               "markdownDescription": "阿里云 AccessKey Secret。仅在凭据存储方式为明文设置时读取。该值会以普通 VS Code 设置存储，请勿提交到版本控制。",
                "order": 4
+            },
+            "floating-translation.baiduAppId": {
+               "type": "string",
+               "default": "",
+               "scope": "application",
+               "markdownDescription": "百度翻译开放平台 APPID。仅在凭据存储方式为明文设置时读取。该值会以普通 VS Code 设置存储，请勿提交到版本控制。",
+               "order": 5
+            },
+            "floating-translation.baiduAppKey": {
+               "type": "string",
+               "default": "",
+               "scope": "application",
+               "markdownDescription": "百度翻译开放平台密钥。仅在凭据存储方式为明文设置时读取。该值会以普通 VS Code 设置存储，请勿提交到版本控制。",
+               "order": 6
             },
             "floating-translation.sourceLanguage": {
                "type": "string",
                "default": "auto",
                "scope": "application",
                "description": "待翻译文本的原语言代码。",
-               "order": 5
+               "order": 7
             },
             "floating-translation.targetLanguage": {
                "type": "string",
                "default": "",
                "scope": "application",
                "markdownDescription": "译文的目标语言代码。留空时使用 VS Code 当前的显示语言。",
-               "order": 6
+               "order": 8
             },
             "floating-translation.customPrompt": {
                "type": "string",

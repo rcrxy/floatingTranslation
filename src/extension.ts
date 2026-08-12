@@ -68,7 +68,7 @@ export function activate(context: vscode.ExtensionContext): void {
    const configTool = new ConfigTool(context.secrets);
    // Provider 不替换自然 Hover，只负责观察原始 Provider 的结果并在翻译阶段追加译文。
    const provider = vscode.languages.registerHoverProvider(
-      { scheme: "*" },
+      {scheme: "*"},
       {
          async provideHover(document, position, token): Promise<vscode.Hover | undefined> {
             const key = createHoverKey(document, position);
@@ -97,7 +97,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
             if (state.kind !== "idle" && state.key !== key) {
                // 用户移动到其他位置后，不再向新 Hover 注入旧译文。
-               translationState = { kind: "idle" };
+               translationState = {kind: "idle"};
             }
 
             running.add(key);
@@ -255,7 +255,7 @@ export function activate(context: vscode.ExtensionContext): void {
          }
 
          if (outcome.kind === "error") {
-            translationState = { kind: "idle" };
+            translationState = {kind: "idle"};
 
             output.appendLine(`翻译失败：${formatError(outcome.error)}`);
 
@@ -270,7 +270,7 @@ export function activate(context: vscode.ExtensionContext): void {
             editor.document.version !== captured.documentVersion
          ) {
             // 翻译期间切换编辑器或修改文档时，丢弃无法可靠定位的结果。
-            translationState = { kind: "idle" };
+            translationState = {kind: "idle"};
 
             output.appendLine("异步翻译已完成，但目标文档已发生变化");
 
@@ -289,7 +289,7 @@ export function activate(context: vscode.ExtensionContext): void {
          const currentState = translationState;
 
          if (currentState.kind !== "idle" && currentState.requestId === requestId) {
-            translationState = { kind: "idle" };
+            translationState = {kind: "idle"};
          }
 
          output.appendLine(`翻译失败：${formatError(error)}`);
@@ -301,53 +301,84 @@ export function activate(context: vscode.ExtensionContext): void {
    // 输入框只负责收集凭据，实际存储位置由 ConfigTool 根据用户设置决定。
    const configureCredentialsCommand = vscode.commands.registerCommand("floatingTranslation.configureCredentials", async () => {
       const translationTool = configTool.getSelect("translationTool");
-      const credentialLabels =
-         translationTool === "baidu"
-            ? {service: "百度翻译", apiKey: "APPID", secretKey: "密钥"}
-            : {service: "阿里云翻译", apiKey: "AccessKey ID", secretKey: "AccessKey Secret"};
-      const apiKey = await vscode.window.showInputBox({
-         title: `配置${credentialLabels.service}凭据`,
-         prompt: `请输入 ${credentialLabels.apiKey}`,
+      const credentialConfigurations = {
+         aliyun: {
+            service: "阿里云翻译",
+            publicLabel: "AccessKey ID",
+            secretLabel: "AccessKey Secret",
+            publicName: "aliyunAccessKeyId",
+            secretName: "aliyunAccessKeySecret",
+         },
+         baidu: {
+            service: "百度翻译",
+            publicLabel: "APPID",
+            secretLabel: "密钥",
+            publicName: "baiduAppId",
+            secretName: "baiduAppKey",
+         },
+      } as const;
+
+      if (translationTool !== "aliyun" && translationTool !== "baidu") {
+         void vscode.window.showErrorMessage(`不支持的翻译工具：${translationTool}`);
+         return;
+      }
+
+      const credentialConfiguration = credentialConfigurations[translationTool];
+      const publicCredential = await vscode.window.showInputBox({
+         title: `配置${credentialConfiguration.service}凭据`,
+         prompt: `请输入 ${credentialConfiguration.publicLabel}`,
          password: true,
          ignoreFocusOut: true,
       });
 
-      if (apiKey === undefined) {
+      if (publicCredential === undefined) {
          return;
       }
 
-      const secretKey = await vscode.window.showInputBox({
-         title: `配置${credentialLabels.service}凭据`,
-         prompt: `请输入 ${credentialLabels.secretKey}`,
+      const secretCredential = await vscode.window.showInputBox({
+         title: `配置${credentialConfiguration.service}凭据`,
+         prompt: `请输入 ${credentialConfiguration.secretLabel}`,
          password: true,
          ignoreFocusOut: true,
       });
 
-      if (secretKey === undefined) {
+      if (secretCredential === undefined) {
          return;
       }
 
-      await configTool.set("apiKey", apiKey);
-      await configTool.set("secretKey", secretKey);
+      await configTool.set(credentialConfiguration.publicName, publicCredential);
+      await configTool.set(credentialConfiguration.secretName, secretCredential);
 
       const storageLabel = configTool.getSelect("credentialStorage") === "secretStorage" ? "加密存储" : "明文设置";
 
-      void vscode.window.showInformationMessage(`${credentialLabels.service}凭据已写入${storageLabel}`);
+      void vscode.window.showInformationMessage(`${credentialConfiguration.service}凭据已写入${storageLabel}`);
    });
-   // 清理命令同时覆盖两种存储，避免切换模式后旧凭据重新生效。
+   // 清理命令同时覆盖两种存储，避免切换存储模式后残留副本重新生效。
    const clearCredentialsCommand = vscode.commands.registerCommand("floatingTranslation.clearCredentials", async () => {
-      const confirmation = await vscode.window.showWarningMessage(
-         "确定要清除明文设置和加密存储中的全部翻译凭据吗？",
-         { modal: true },
-         "清除",
-      );
+      const translationTool = configTool.getSelect("translationTool");
 
-      if (confirmation !== "清除") {
+      if (translationTool !== "aliyun" && translationTool !== "baidu") {
+         void vscode.window.showErrorMessage(`不支持的翻译工具：${translationTool}`);
          return;
       }
 
-      await configTool.clearCredentials();
-      void vscode.window.showInformationMessage("翻译凭据已清除");
+      const service = translationTool === "aliyun" ? "阿里云翻译" : "百度翻译";
+      const clearCurrent = `仅清除${service}`;
+      const clearAll = "清除全部平台";
+      const confirmation = await vscode.window.showWarningMessage(
+         "请选择要从明文设置和加密存储中清除的翻译凭据。",
+         {modal: true},
+         clearCurrent,
+         clearAll,
+      );
+
+      if (confirmation === clearCurrent) {
+         await configTool.clearCredentials(translationTool);
+         void vscode.window.showInformationMessage(`${service}凭据已清除`);
+      } else if (confirmation === clearAll) {
+         await configTool.clearAllCredentials();
+         void vscode.window.showInformationMessage("全部翻译平台凭据已清除");
+      }
    });
 
    context.subscriptions.push(output, provider, triggerCommand, configureCredentialsCommand, clearCredentialsCommand);

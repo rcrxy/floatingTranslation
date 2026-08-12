@@ -24,10 +24,12 @@ FloatingTranslation 是一个用于验证 VS Code Hover 内容翻译方案的扩
 - `floating-translation.sourceLanguage`：源语言代码，默认为 `auto`。
 - `floating-translation.targetLanguage`：目标语言代码；留空时使用 VS Code 当前显示语言。
 - `floating-translation.credentialStorage`：凭据存储方式，可选普通用户设置或 VS Code `SecretStorage`。
-- `floating-translation.apiKey`：阿里云使用 AccessKey ID，百度翻译使用 APPID。
-- `floating-translation.secretKey`：阿里云使用 AccessKey Secret，百度翻译使用密钥。
+- `floating-translation.aliyunAccessKeyId`：阿里云 AccessKey ID。
+- `floating-translation.aliyunAccessKeySecret`：阿里云 AccessKey Secret。
+- `floating-translation.baiduAppId`：百度翻译开放平台 APPID。
+- `floating-translation.baiduAppKey`：百度翻译开放平台密钥。
 
-如果选择 `SecretStorage`，请从命令面板执行 `Floating Translation: Configure Credentials` 输入凭据。执行 `Floating Translation: Clear Credentials` 会同时清除普通用户设置和 `SecretStorage` 中的凭据。
+各平台凭据相互独立。切换到目标翻译平台后，从命令面板执行 `Floating Translation: Configure Credentials`，即可输入并保存当前平台的凭据。执行 `Floating Translation: Clear Credentials` 时，可以选择清除当前平台或全部平台在普通用户设置和 `SecretStorage` 中的凭据。
 
 普通用户设置中的凭据以明文形式保存，不应提交到版本控制。待翻译文本会发送到当前选择的第三方翻译服务，并可能产生费用；请根据实际数据处理要求核对服务条款、日志留存和合规要求。
 

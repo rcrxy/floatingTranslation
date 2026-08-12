@@ -14,10 +14,14 @@ export interface FloatingTranslationConfiguration {
    readonly translationMode: TranslationMode;
    /** API 凭据的读取和写入位置。 */
    readonly credentialStorage: CredentialStorage;
-   /** 翻译服务的公开访问密钥。 */
-   readonly apiKey: string;
-   /** 翻译服务的私密访问密钥。 */
-   readonly secretKey: string;
+   /** 阿里云 AccessKey ID。 */
+   readonly aliyunAccessKeyId: string;
+   /** 阿里云 AccessKey Secret。 */
+   readonly aliyunAccessKeySecret: string;
+   /** 百度翻译开放平台 APPID。 */
+   readonly baiduAppId: string;
+   /** 百度翻译开放平台密钥。 */
+   readonly baiduAppKey: string;
    /** 翻译请求使用的源语言代码，通常允许使用 auto。 */
    readonly sourceLanguage: string;
    /** 翻译请求使用的目标语言代码，空值表示跟随 VS Code 显示语言。 */
@@ -27,17 +31,26 @@ export interface FloatingTranslationConfiguration {
 }
 
 type ConfigurationName = keyof FloatingTranslationConfiguration;
+type CredentialName = "aliyunAccessKeyId" | "aliyunAccessKeySecret" | "baiduAppId" | "baiduAppKey";
 
 const configurationSection = "floating-translation";
 // 只有凭据字段需要根据 credentialStorage 在两种存储之间路由。
-const credentialNames = new Set<ConfigurationName>(["apiKey", "secretKey"]);
+const credentialNames = new Set<ConfigurationName>(["aliyunAccessKeyId", "aliyunAccessKeySecret", "baiduAppId", "baiduAppKey"]);
+const credentialSecretKeys: Readonly<Record<CredentialName, string>> = {
+   aliyunAccessKeyId: "credentials.aliyun.accessKeyId",
+   aliyunAccessKeySecret: "credentials.aliyun.accessKeySecret",
+   baiduAppId: "credentials.baidu.appId",
+   baiduAppKey: "credentials.baidu.appKey",
+};
 // 代码侧默认值与 package.json 保持一致，确保配置清单异常时仍有确定行为。
 const defaultValues: FloatingTranslationConfiguration = {
    translationTool: "aliyun",
    translationMode: "localPlaceholders",
    credentialStorage: "settings",
-   apiKey: "",
-   secretKey: "",
+   aliyunAccessKeyId: "",
+   aliyunAccessKeySecret: "",
+   baiduAppId: "",
+   baiduAppKey: "",
    sourceLanguage: "auto",
    targetLanguage: "",
    customPrompt: "",
@@ -57,8 +70,10 @@ export class ConfigTool {
          translationTool,
          translationMode,
          credentialStorage,
-         apiKey,
-         secretKey,
+         aliyunAccessKeyId,
+         aliyunAccessKeySecret,
+         baiduAppId,
+         baiduAppKey,
          sourceLanguage,
          targetLanguage,
          customPrompt,
@@ -66,8 +81,10 @@ export class ConfigTool {
          "translationTool",
          "translationMode",
          "credentialStorage",
-         "apiKey",
-         "secretKey",
+         "aliyunAccessKeyId",
+         "aliyunAccessKeySecret",
+         "baiduAppId",
+         "baiduAppKey",
          "sourceLanguage",
          "targetLanguage",
          "customPrompt",
@@ -77,8 +94,10 @@ export class ConfigTool {
          translationTool,
          translationMode: normalizeTranslationMode(translationMode),
          credentialStorage: credentialStorage === "secretStorage" ? "secretStorage" : "settings",
-         apiKey,
-         secretKey,
+         aliyunAccessKeyId,
+         aliyunAccessKeySecret,
+         baiduAppId,
+         baiduAppKey,
          sourceLanguage,
          targetLanguage,
          customPrompt,
@@ -103,10 +122,12 @@ export class ConfigTool {
       const normalizedValue = value.trim();
 
       if (credentialNames.has(name) && this.getCredentialStorage() === "secretStorage") {
+         const secretKey = credentialSecretKeys[name as CredentialName];
+
          if (normalizedValue) {
-            await this.secretStorage.store(name, normalizedValue);
+            await this.secretStorage.store(secretKey, normalizedValue);
          } else {
-            await this.secretStorage.delete(name);
+            await this.secretStorage.delete(secretKey);
          }
 
          await this.updateSetting(name, "");
@@ -118,24 +139,34 @@ export class ConfigTool {
 
       if (credentialNames.has(name)) {
          // 明文模式以设置值为唯一来源，因此同步删除可能残留的加密副本。
-         await this.secretStorage.delete(name);
+         await this.secretStorage.delete(credentialSecretKeys[name as CredentialName]);
       }
    }
 
-   /** 同时清除普通设置和加密存储中的全部凭据。 */
-   public async clearCredentials(): Promise<void> {
-      await Promise.all([
-         this.updateSetting("apiKey", ""),
-         this.updateSetting("secretKey", ""),
-         this.secretStorage.delete("apiKey"),
-         this.secretStorage.delete("secretKey"),
-      ]);
+   /** 同时清除指定平台在普通设置和加密存储中的凭据。 */
+   public async clearCredentials(translationTool: "aliyun" | "baidu"): Promise<void> {
+      const names: readonly CredentialName[] =
+         translationTool === "aliyun" ? ["aliyunAccessKeyId", "aliyunAccessKeySecret"] : ["baiduAppId", "baiduAppKey"];
+
+      await Promise.all(
+         names.flatMap((name) => [this.updateSetting(name, ""), this.secretStorage.delete(credentialSecretKeys[name])]),
+      );
+   }
+
+   /** 同时清除所有平台在普通设置和加密存储中的凭据。 */
+   public async clearAllCredentials(): Promise<void> {
+      await Promise.all(
+         [...credentialNames].flatMap((name) => [
+            this.updateSetting(name as CredentialName, ""),
+            this.secretStorage.delete(credentialSecretKeys[name as CredentialName]),
+         ]),
+      );
    }
 
    /** 根据配置项类型和当前存储模式选择实际读取位置。 */
    private async get(name: ConfigurationName): Promise<string> {
       if (credentialNames.has(name) && this.getCredentialStorage() === "secretStorage") {
-         return (await this.secretStorage.get(name))?.trim() ?? "";
+         return (await this.secretStorage.get(credentialSecretKeys[name as CredentialName]))?.trim() ?? "";
       }
 
       return this.getSelect(name);
