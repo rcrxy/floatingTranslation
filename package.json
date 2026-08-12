@@ -4,6 +4,7 @@
    "description": "Translate VS Code hover documentation through configurable translation services.",
    "version": "0.0.1",
    "publisher": "zeco",
+   "icon": "resources/ft_logo.png",
    "license": "SEE LICENSE IN LICENSE",
    "engines": {
       "vscode": "^1.125.0"
