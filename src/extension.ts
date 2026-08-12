@@ -30,6 +30,9 @@ type TranslationOutcome =
         readonly translatedText: string;
      }
    | {
+        readonly kind: "unchanged";
+     }
+   | {
         readonly kind: "error";
         readonly error: unknown;
      };
@@ -192,10 +195,13 @@ export function activate(context: vscode.ExtensionContext): void {
          TranslationOutcome,
          TranslationOutcome
       >(
-         (translatedText) => ({
-            kind: "success",
-            translatedText,
-         }),
+         (translatedText) =>
+            translatedText === getOriginalSourceText(captured.contents)
+               ? {kind: "unchanged"}
+               : {
+                    kind: "success",
+                    translatedText,
+                 },
          (error) => ({
             kind: "error",
             error,
@@ -264,6 +270,16 @@ export function activate(context: vscode.ExtensionContext): void {
             translationState = {kind: "idle"};
 
             output.appendLine("异步翻译已完成，但目标文档已发生变化");
+
+            return;
+         }
+
+         if (outcome.kind === "unchanged") {
+            translationState = {kind: "idle"};
+
+            output.appendLine("译文与原文一致，未追加到当前 Hover");
+
+            void vscode.window.showInformationMessage("译文与原文一致，未显示翻译结果");
 
             return;
          }
@@ -398,6 +414,10 @@ async function providePendingTranslationHover(
       return undefined;
    }
 
+   if (outcome.kind === "unchanged") {
+      return undefined;
+   }
+
    return createTranslationHover(outcome.translatedText);
 }
 
@@ -449,6 +469,11 @@ function getTranslatableSourceLength(contents: readonly TranslatableContent[], t
          content.value.reduce((valueLength, value) => valueLength + (value.isTranslatable ? value.text.length : 0), 0),
       0,
    );
+}
+
+/** 按原始 Hover 展示顺序拼接完整 Markdown，用于判断翻译结果是否发生变化。 */
+function getOriginalSourceText(contents: readonly TranslatableContent[]): string {
+   return contents.map((content) => content.sourceText).join("\n\n");
 }
 
 /** 拼接实际会发送给翻译服务的文本，仅用于诊断输出。 */
