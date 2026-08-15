@@ -68,6 +68,11 @@ export class OpenAiCompatibleTranslation {
       this.concurrency = normalizePositiveInteger(options.concurrency, defaultConcurrency);
    }
 
+   /** 根据本次文本片段数返回实际会启动的并发请求数。 */
+   public getConcurrentRequestCount(textCount: number): number {
+      return Math.min(this.concurrency, textCount);
+   }
+
    /** 使用有限并发逐段翻译，返回结果顺序与输入文本顺序一致。 */
    public async invoke(texts: readonly string[]): Promise<string[]> {
       if (!this.apiKey) {
@@ -80,7 +85,7 @@ export class OpenAiCompatibleTranslation {
 
       const translatedTexts = new Array<string>(texts.length);
       let nextIndex = 0;
-      const workerCount = Math.min(this.concurrency, texts.length);
+      const workerCount = this.getConcurrentRequestCount(texts.length);
 
       await Promise.all(
          Array.from({ length: workerCount }, async () => {
@@ -153,37 +158,12 @@ export class OpenAiCompatibleTranslation {
       const message = responseBody.choices?.[0]?.message;
       const content = message?.content;
 
-      printThinkingContent(message);
-
       if (typeof content !== "string" || !content.trim()) {
          throw new Error("OpenAI 兼容服务响应中未包含有效译文");
       }
 
       return content.trim();
    }
-}
-
-/**
- * 输出服务端明确返回的推理内容，用于验证思考模式配置。
- * 未找到推理字段只表示响应没有暴露思考过程，不能证明模型内部未执行推理。
- */
-function printThinkingContent(message: ChatCompletionMessage | undefined): void {
-   const thinkingParts = [message?.thinking, message?.reasoning_content].filter(
-      (value): value is string => typeof value === "string" && Boolean(value.trim()),
-   );
-   const content = typeof message?.content === "string" ? message.content : "";
-   const embeddedThinking = /<think>([\s\S]*?)<\/think>/i.exec(content)?.[1]?.trim();
-
-   if (embeddedThinking) {
-      thinkingParts.push(embeddedThinking);
-   }
-
-   if (thinkingParts.length > 0) {
-      console.info(`OpenAI 兼容服务返回的思考内容：\n${thinkingParts.join("\n\n")}`);
-      return;
-   }
-
-   console.info("OpenAI 兼容服务未返回独立思考内容；这不等同于模型内部未执行推理。");
 }
 
 /** 为不同内容保护模式创建互相独立的系统 Prompt。 */

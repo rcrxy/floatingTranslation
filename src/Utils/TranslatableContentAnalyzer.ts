@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import * as vscode from "vscode";
+import { output } from "./output";
 
 /** 一次 Hover 分析的汇总结果。 */
 export type TranslatableContentResult = {
@@ -96,6 +97,13 @@ export function restoreTranslationPlaceholders(
 
    if (missingPlaceholders.length > 0) {
       // 丢失内容不能安全定位回原段落，因此以诊断代码块附加，确保信息仍可见。
+      output.appendLine(
+         [
+            `占位符未完整替换：${missingPlaceholders.map((placeholder) => placeholder.token).join("、")}`,
+            `原内容：\n${sourceText}`,
+            `翻译后的内容：\n${translatedText}`,
+         ].join("\n"),
+      );
       restoredText += `\n\n${createMissingPlaceholderCodeBlock(missingPlaceholders)}`;
    }
 

@@ -44,7 +44,14 @@ export async function AggregationTranslation(
             accessKeyId: configuration.aliyunAccessKeyId,
             accessKeySecret: configuration.aliyunAccessKeySecret,
          });
-         return translateContents(contents, (sourceTexts) => aliyun.invoke(sourceTexts), configuration.translationMode);
+         return translateContents(
+            contents,
+            (sourceTexts) => {
+               outputTranslationInvocation("阿里云翻译", sourceTexts, sourceTexts.length);
+               return aliyun.invoke(sourceTexts);
+            },
+            configuration.translationMode,
+         );
       }
       case "baidu": {
          const baidu = new BaiduTranslation({
@@ -53,7 +60,14 @@ export async function AggregationTranslation(
             appId: configuration.baiduAppId,
             appKey: configuration.baiduAppKey,
          });
-         return translateContents(contents, (sourceTexts) => baidu.invoke(sourceTexts), configuration.translationMode);
+         return translateContents(
+            contents,
+            (sourceTexts) => {
+               outputTranslationInvocation("百度翻译", sourceTexts, sourceTexts.length);
+               return baidu.invoke(sourceTexts);
+            },
+            configuration.translationMode,
+         );
       }
       case "openaiCompatible": {
          const openAiCompatible = new OpenAiCompatibleTranslation({
@@ -67,13 +81,40 @@ export async function AggregationTranslation(
          });
          return translateContents(
             contents,
-            (sourceTexts) => openAiCompatible.invoke(sourceTexts),
+            (sourceTexts) => {
+               outputTranslationInvocation(
+                  "OpenAI 兼容服务",
+                  sourceTexts,
+                  openAiCompatible.getConcurrentRequestCount(sourceTexts.length),
+                  configuration.openAiCompatibleEndpoint,
+                  configuration.openAiCompatibleModel,
+               );
+               return openAiCompatible.invoke(sourceTexts);
+            },
             configuration.translationMode,
          );
       }
       default:
          throw new Error(`不支持的翻译工具：${configuration.translationTool}`);
    }
+}
+
+/** 输出本次真正提交给翻译服务的调用信息。 */
+function outputTranslationInvocation(
+   service: string,
+   sourceTexts: readonly string[],
+   concurrentRequestCount: number,
+   endpoint?: string,
+   model?: string,
+): void {
+   const characterCount = sourceTexts.reduce((count, sourceText) => count + sourceText.length, 0);
+   const fields = [`翻译服务：${service}`, `翻译字数：${characterCount}`, `并发数量：${concurrentRequestCount}`];
+
+   if (endpoint !== undefined && model !== undefined) {
+      fields.push(`Endpoint：${endpoint}`, `模型名称：${model}`);
+   }
+
+   output.appendLine(fields.join("，"));
 }
 
 /** 按配置的内容尺度翻译片段，并按原顺序重建最终 Markdown。 */
@@ -243,8 +284,6 @@ function restoreStructuredContents<TResult>(
    const translatedContents: string[] = [];
    let translatedValueIndex = 0;
 
-   output.appendLine("---------- 结构恢复前译文 ---------- \n");
-
    for (const content of contents) {
       const translatedValues = content.value.map((value) => {
          if (!value.isTranslatable) {
@@ -253,7 +292,6 @@ function restoreStructuredContents<TResult>(
 
          const result = restore(value, translatedResults[translatedValueIndex]);
 
-         output.appendLine(`${result}\n`);
          translatedValueIndex += 1;
          return result;
       });

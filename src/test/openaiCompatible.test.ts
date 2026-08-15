@@ -39,6 +39,8 @@ suite("OpenAiCompatibleTranslation", () => {
       assert.equal(requests[0].url, "https://example.com/v1/chat/completions");
       assert.equal(requests[0].body.model, "test-model");
       assert.equal(requests[0].body.stream, false);
+      assert.equal(service.getConcurrentRequestCount(2), 2);
+      assert.equal(service.getConcurrentRequestCount(5), 3);
 
       const firstMessages = requests[0].body.messages as readonly { readonly role: string; readonly content: string }[];
 

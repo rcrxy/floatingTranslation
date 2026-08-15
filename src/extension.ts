@@ -182,14 +182,6 @@ export function activate(context: vscode.ExtensionContext): void {
 
       const requestId = ++nextRequestId;
 
-      output.appendLine(
-         `---------- 原文内容 ---------- \n${captured.contents.map((content) => content.sourceText).join("\n\n")}`,
-      );
-      output.appendLine(`开始异步翻译，原文长度：${getTranslatableSourceLength(captured.contents, translationMode)}`);
-      output.appendLine(
-         `---------- 转换后待翻译内容 ----------\n${getTranslatableSourceText(captured.contents, translationMode)}`,
-      );
-
       // 把 rejection 转为结果值，使命令和 Hover Provider 能安全等待同一个 Promise。
       const translationPromise = AggregationTranslation(captured.contents, configTool).then<
          TranslationOutcome,
@@ -246,8 +238,6 @@ export function activate(context: vscode.ExtensionContext): void {
 
          if (translationState !== request) {
             // 状态对象按引用比较，只有仍为本请求时才能提交结果。
-            output.appendLine("异步翻译已完成，但当前请求已失效");
-
             return;
          }
 
@@ -269,15 +259,11 @@ export function activate(context: vscode.ExtensionContext): void {
             // 翻译期间切换编辑器或修改文档时，丢弃无法可靠定位的结果。
             translationState = { kind: "idle" };
 
-            output.appendLine("异步翻译已完成，但目标文档已发生变化");
-
             return;
          }
 
          if (outcome.kind === "unchanged") {
             translationState = { kind: "idle" };
-
-            output.appendLine("译文与原文一致，未追加到当前 Hover");
 
             void vscode.window.showInformationMessage("译文与原文一致，未显示翻译结果");
 
@@ -290,8 +276,6 @@ export function activate(context: vscode.ExtensionContext): void {
             key,
             translatedText: outcome.translatedText,
          };
-
-         output.appendLine("异步翻译完成并追加到当前 Hover");
       } catch (error) {
          const currentState = translationState;
 
@@ -429,7 +413,6 @@ async function providePendingTranslationHover(
    const outcome = await request.promise;
 
    if (token.isCancellationRequested || translationState !== request) {
-      output.appendLine("异步翻译已完成，但当前 Hover 已取消");
       return undefined;
    }
 
@@ -480,36 +463,9 @@ function createHoverKey(document: vscode.TextDocument, position: vscode.Position
    return [document.uri.toString(), document.version, position.line, position.character].join(":");
 }
 
-/** 统计实际会发送给翻译服务的字符数。 */
-function getTranslatableSourceLength(contents: readonly TranslatableContent[], translationMode: TranslationMode): number {
-   if (translationMode === "fullText" || translationMode === "codeBlocks") {
-      return contents.reduce((length, content) => length + content.sourceText.length, 0);
-   }
-
-   return contents.reduce(
-      (contentLength, content) =>
-         contentLength +
-         content.value.reduce((valueLength, value) => valueLength + (value.isTranslatable ? value.text.length : 0), 0),
-      0,
-   );
-}
-
 /** 按原始 Hover 展示顺序拼接完整 Markdown，用于判断翻译结果是否发生变化。 */
 function getOriginalSourceText(contents: readonly TranslatableContent[]): string {
    return contents.map((content) => content.sourceText).join("\n\n");
-}
-
-/** 拼接实际会发送给翻译服务的文本，仅用于诊断输出。 */
-function getTranslatableSourceText(contents: readonly TranslatableContent[], translationMode: TranslationMode): string {
-   if (translationMode === "fullText" || translationMode === "codeBlocks") {
-      return contents.map((content) => content.sourceText).join("\n\n");
-   }
-
-   return contents
-      .flatMap((content) => content.value)
-      .filter((value) => value.isTranslatable)
-      .map((value) => value.text)
-      .join("\n\n");
 }
 
 /** 关闭旧 Hover，并在下一个事件循环重新打开当前光标位置的 Hover。 */
