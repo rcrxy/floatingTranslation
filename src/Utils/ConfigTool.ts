@@ -38,8 +38,15 @@ export interface FloatingTranslationConfiguration {
 
 type ConfigurationName = keyof FloatingTranslationConfiguration;
 type CredentialName = "aliyunAccessKeyId" | "aliyunAccessKeySecret" | "baiduAppId" | "baiduAppKey" | "openAiCompatibleApiKey";
+type GeneralPlatformCredentialName = Exclude<CredentialName, "openAiCompatibleApiKey">;
+type GeneralPlatformCredentials = Readonly<Record<GeneralPlatformCredentialName, string>>;
+type OpenAiCompatibleConfigurationName =
+   "openAiCompatibleEndpoint" | "openAiCompatibleApiKey" | "openAiCompatibleModel" | "customPrompt";
+type OpenAiCompatibleConfiguration = Readonly<Record<OpenAiCompatibleConfigurationName, string>>;
 
 const configurationSection = "floating-translation";
+const generalPlatformCredentialsSetting = "generalPlatformCredentials";
+const openAiCompatibleConfigurationSetting = "openAiCompatibleConfiguration";
 // 只有凭据字段需要根据 credentialStorage 在两种存储之间路由。
 const credentialNames = new Set<ConfigurationName>([
    "aliyunAccessKeyId",
@@ -54,6 +61,30 @@ const credentialSecretKeys: Readonly<Record<CredentialName, string>> = {
    baiduAppId: "credentials.baidu.appId",
    baiduAppKey: "credentials.baidu.appKey",
    openAiCompatibleApiKey: "credentials.openaiCompatible.apiKey",
+};
+const generalPlatformCredentialNames = new Set<ConfigurationName>([
+   "aliyunAccessKeyId",
+   "aliyunAccessKeySecret",
+   "baiduAppId",
+   "baiduAppKey",
+]);
+const openAiCompatibleConfigurationNames = new Set<ConfigurationName>([
+   "openAiCompatibleEndpoint",
+   "openAiCompatibleApiKey",
+   "openAiCompatibleModel",
+   "customPrompt",
+]);
+const defaultGeneralPlatformCredentials: GeneralPlatformCredentials = {
+   aliyunAccessKeyId: "",
+   aliyunAccessKeySecret: "",
+   baiduAppId: "",
+   baiduAppKey: "",
+};
+const defaultOpenAiCompatibleConfiguration: OpenAiCompatibleConfiguration = {
+   openAiCompatibleEndpoint: "",
+   openAiCompatibleApiKey: "",
+   openAiCompatibleModel: "",
+   customPrompt: "",
 };
 // 代码侧默认值与 package.json 保持一致，确保配置清单异常时仍有确定行为。
 const defaultValues: FloatingTranslationConfiguration = {
@@ -131,6 +162,14 @@ export class ConfigTool {
 
    /** 直接读取普通用户设置，不对凭据字段执行存储路由。 */
    public getSelect(name: ConfigurationName): string {
+      if (generalPlatformCredentialNames.has(name)) {
+         return this.getGeneralPlatformCredentials()[name as GeneralPlatformCredentialName];
+      }
+
+      if (openAiCompatibleConfigurationNames.has(name)) {
+         return this.getOpenAiCompatibleConfiguration()[name as OpenAiCompatibleConfigurationName];
+      }
+
       return vscode.workspace.getConfiguration(configurationSection).get<string>(name, defaultValues[name]).trim();
    }
 
@@ -139,10 +178,7 @@ export class ConfigTool {
       return Promise.all(names.map((name) => this.get(name)));
    }
 
-   /**
-    * 按当前存储模式写入配置。
-    * 写入凭据时会清除另一种存储中的副本，避免切换模式后读到旧值。
-    */
+   /** 按当前存储模式写入配置，两种存储中的凭据互不修改。 */
    public async set(name: ConfigurationName, value: string): Promise<void> {
       const normalizedValue = value.trim();
 
@@ -155,20 +191,13 @@ export class ConfigTool {
             await this.secretStorage.delete(secretKey);
          }
 
-         await this.updateSetting(name, "");
-
          return;
       }
 
       await this.updateSetting(name, normalizedValue);
-
-      if (credentialNames.has(name)) {
-         // 明文模式以设置值为唯一来源，因此同步删除可能残留的加密副本。
-         await this.secretStorage.delete(credentialSecretKeys[name as CredentialName]);
-      }
    }
 
-   /** 同时清除指定平台在普通设置和加密存储中的凭据。 */
+   /** 清除指定平台存放在加密存储中的凭据。 */
    public async clearCredentials(translationTool: "aliyun" | "baidu" | "openaiCompatible"): Promise<void> {
       const names: readonly CredentialName[] =
          translationTool === "aliyun"
@@ -177,19 +206,14 @@ export class ConfigTool {
               ? ["baiduAppId", "baiduAppKey"]
               : ["openAiCompatibleApiKey"];
 
-      await Promise.all(
-         names.flatMap((name) => [this.updateSetting(name, ""), this.secretStorage.delete(credentialSecretKeys[name])]),
-      );
+      await Promise.all(names.map((name) => this.secretStorage.delete(credentialSecretKeys[name])));
    }
 
-   /** 同时清除所有平台在普通设置和加密存储中的凭据。 */
+   /** 清除所有平台存放在加密存储中的凭据。 */
    public async clearAllCredentials(): Promise<void> {
-      await Promise.all(
-         [...credentialNames].flatMap((name) => [
-            this.updateSetting(name as CredentialName, ""),
-            this.secretStorage.delete(credentialSecretKeys[name as CredentialName]),
-         ]),
-      );
+      const names = [...credentialNames] as CredentialName[];
+
+      await Promise.all(names.map((name) => this.secretStorage.delete(credentialSecretKeys[name])));
    }
 
    /** 根据配置项类型和当前存储模式选择实际读取位置。 */
@@ -206,9 +230,77 @@ export class ConfigTool {
       return this.getSelect("credentialStorage") === "secretStorage" ? "secretStorage" : "settings";
    }
 
+   /** 从聚合设置中读取常规翻译平台凭据，并将无效字段回退为空字符串。 */
+   private getGeneralPlatformCredentials(): GeneralPlatformCredentials {
+      const configuredCredentials = vscode.workspace
+         .getConfiguration(configurationSection)
+         .get<Partial<Record<GeneralPlatformCredentialName, unknown>>>(generalPlatformCredentialsSetting, {});
+
+      return {
+         aliyunAccessKeyId: getCredentialValue("aliyunAccessKeyId"),
+         aliyunAccessKeySecret: getCredentialValue("aliyunAccessKeySecret"),
+         baiduAppId: getCredentialValue("baiduAppId"),
+         baiduAppKey: getCredentialValue("baiduAppKey"),
+      };
+
+      function getCredentialValue(name: GeneralPlatformCredentialName): string {
+         const value = configuredCredentials[name] ?? defaultGeneralPlatformCredentials[name];
+         return typeof value === "string" ? value.trim() : "";
+      }
+   }
+
+   /** 从聚合设置中读取 OpenAI 兼容服务配置，并将无效字段回退为空字符串。 */
+   private getOpenAiCompatibleConfiguration(): OpenAiCompatibleConfiguration {
+      const configuredValues = vscode.workspace
+         .getConfiguration(configurationSection)
+         .get<Partial<Record<OpenAiCompatibleConfigurationName, unknown>>>(openAiCompatibleConfigurationSetting, {});
+
+      return {
+         openAiCompatibleEndpoint: getConfigurationValue("openAiCompatibleEndpoint"),
+         openAiCompatibleApiKey: getConfigurationValue("openAiCompatibleApiKey"),
+         openAiCompatibleModel: getConfigurationValue("openAiCompatibleModel"),
+         customPrompt: getConfigurationValue("customPrompt"),
+      };
+
+      function getConfigurationValue(name: OpenAiCompatibleConfigurationName): string {
+         const value = configuredValues[name] ?? defaultOpenAiCompatibleConfiguration[name];
+         return typeof value === "string" ? value.trim() : "";
+      }
+   }
+
    /** 所有普通设置统一写入用户级配置，避免凭据落入工作区文件。 */
    private async updateSetting(name: ConfigurationName, value: string): Promise<void> {
+      if (generalPlatformCredentialNames.has(name)) {
+         await this.updateGeneralPlatformCredentials({
+            ...this.getGeneralPlatformCredentials(),
+            [name]: value,
+         });
+         return;
+      }
+
+      if (openAiCompatibleConfigurationNames.has(name)) {
+         await this.updateOpenAiCompatibleConfiguration({
+            ...this.getOpenAiCompatibleConfiguration(),
+            [name]: value,
+         });
+         return;
+      }
+
       await vscode.workspace.getConfiguration(configurationSection).update(name, value, vscode.ConfigurationTarget.Global);
+   }
+
+   /** 将完整的常规平台凭据对象写入用户级设置。 */
+   private async updateGeneralPlatformCredentials(credentials: GeneralPlatformCredentials): Promise<void> {
+      await vscode.workspace
+         .getConfiguration(configurationSection)
+         .update(generalPlatformCredentialsSetting, credentials, vscode.ConfigurationTarget.Global);
+   }
+
+   /** 将完整的 OpenAI 兼容服务配置对象写入用户级设置。 */
+   private async updateOpenAiCompatibleConfiguration(configuration: OpenAiCompatibleConfiguration): Promise<void> {
+      await vscode.workspace
+         .getConfiguration(configurationSection)
+         .update(openAiCompatibleConfigurationSetting, configuration, vscode.ConfigurationTarget.Global);
    }
 }
 

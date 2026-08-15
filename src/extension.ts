@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import {ConfigTool, normalizeTranslationMode, type TranslationMode} from "./Utils/ConfigTool";
-import { output } from "./Utils/output";
-import { TranslatableContentAnalyzer, type TranslatableContent } from "./Utils/TranslatableContentAnalyzer";
+import {output} from "./Utils/output";
+import {TranslatableContentAnalyzer, type TranslatableContent} from "./Utils/TranslatableContentAnalyzer";
 import {AggregationTranslation, hasTranslatableContent} from "./AggregationTranslation";
 
 // executeHoverProvider 会回调本扩展的 Provider，用位置键阻断同一次递归调用。
@@ -63,7 +63,7 @@ type TranslationState =
 
 // 状态保存在扩展宿主进程内，仅覆盖当前 VS Code 窗口的最近一次 Hover。
 let capturedHover: CapturedHover | undefined;
-let translationState: TranslationState = { kind: "idle" };
+let translationState: TranslationState = {kind: "idle"};
 let nextRequestId = 0;
 
 /** 注册 Hover Provider、翻译命令和凭据管理命令。 */
@@ -381,7 +381,8 @@ export function activate(context: vscode.ExtensionContext): void {
 
       void vscode.window.showInformationMessage(`${credentialConfiguration.service}凭据已写入${storageLabel}`);
    });
-   // 清理命令同时覆盖两种存储，避免切换存储模式后残留副本重新生效。
+
+   // 清理命令仅操作扩展的加密存储，不修改用户维护的明文设置。
    const clearCredentialsCommand = vscode.commands.registerCommand("floatingTranslation.clearCredentials", async () => {
       const translationTool = configTool.getSelect("translationTool");
 
@@ -395,7 +396,7 @@ export function activate(context: vscode.ExtensionContext): void {
       const clearCurrent = `仅清除${service}`;
       const clearAll = "清除全部平台";
       const confirmation = await vscode.window.showWarningMessage(
-         "请选择要从明文设置和加密存储中清除的翻译凭据。",
+         "请选择要从加密存储中清除的翻译凭据。明文设置不会受到影响。",
          {modal: true},
          clearCurrent,
          clearAll,
@@ -403,10 +404,10 @@ export function activate(context: vscode.ExtensionContext): void {
 
       if (confirmation === clearCurrent) {
          await configTool.clearCredentials(translationTool);
-         void vscode.window.showInformationMessage(`${service}凭据已清除`);
+         void vscode.window.showInformationMessage(`${service}的加密存储凭据已清除`);
       } else if (confirmation === clearAll) {
          await configTool.clearAllCredentials();
-         void vscode.window.showInformationMessage("全部翻译平台凭据已清除");
+         void vscode.window.showInformationMessage("全部翻译平台的加密存储凭据已清除");
       }
    });
 
@@ -416,7 +417,7 @@ export function activate(context: vscode.ExtensionContext): void {
 /** 清理仅存在于扩展宿主内的 Hover 和请求状态。 */
 export function deactivate(): void {
    capturedHover = undefined;
-   translationState = { kind: "idle" };
+   translationState = {kind: "idle"};
    running.clear();
 }
 
