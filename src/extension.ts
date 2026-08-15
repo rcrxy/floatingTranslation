@@ -44,8 +44,14 @@ interface LoadingTranslationState {
    readonly requestId: number;
    /** 本次翻译所属的 Hover 位置键。 */
    readonly key: string;
+   /** 本次翻译所属的 Hover 内容摘要。 */
+   readonly contentKey: string;
+   /** 创建任务时的翻译配置修订号。 */
+   readonly configurationRevision: number;
    /** Provider 和命令处理器共享的翻译任务。 */
    readonly promise: Promise<TranslationOutcome>;
+   /** 终止适配器的排队任务和可取消的在途请求。 */
+   readonly terminate: () => void;
 }
 
 /** Hover 翻译在空闲、加载和已翻译之间转换的有限状态。 */
@@ -58,6 +64,8 @@ type TranslationState =
         readonly kind: "translated";
         readonly requestId: number;
         readonly key: string;
+        readonly contentKey: string;
+        readonly configurationRevision: number;
         readonly translatedText: string;
      };
 
@@ -65,6 +73,7 @@ type TranslationState =
 let capturedHover: CapturedHover | undefined;
 let translationState: TranslationState = { kind: "idle" };
 let nextRequestId = 0;
+let translationConfigurationRevision = 0;
 
 /** 注册 Hover Provider、翻译命令和凭据管理命令。 */
 export function activate(context: vscode.ExtensionContext): void {
@@ -79,28 +88,6 @@ export function activate(context: vscode.ExtensionContext): void {
             // 内部 executeHoverProvider 会再次调用当前 Provider，命中后必须立即退出。
             if (running.has(key)) {
                return undefined;
-            }
-
-            const state = translationState;
-
-            if (state.kind === "loading") {
-               if (state.key === key) {
-                  // 重开的同位置 Hover 等待已有任务，避免发起重复翻译。
-                  return providePendingTranslationHover(state, token);
-               }
-
-               // 翻译期间不因其他位置触发 Hover 而废弃当前请求。
-               return undefined;
-            }
-
-            if (state.kind === "translated" && state.key === key) {
-               // 已完成结果只对最初的位置和文档版本有效。
-               return createTranslationHover(state.translatedText);
-            }
-
-            if (state.kind !== "idle" && state.key !== key) {
-               // 用户移动到其他位置后，不再向新 Hover 注入旧译文。
-               translationState = { kind: "idle" };
             }
 
             running.add(key);
@@ -119,7 +106,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
                const analysis = new TranslatableContentAnalyzer(hovers).invoke();
 
-               capturedHover = {
+               const captured: CapturedHover = {
                   key,
                   contentKey: analysis.key,
                   documentUri: document.uri.toString(),
@@ -127,6 +114,24 @@ export function activate(context: vscode.ExtensionContext): void {
                   position,
                   contents: analysis.contents,
                };
+               capturedHover = captured;
+
+               const state = translationState;
+
+               if (isSameTranslationRequest(state, captured)) {
+                  if (state.kind === "loading") {
+                     return providePendingTranslationHover(state, token);
+                  }
+
+                  if (state.kind === "translated") {
+                     return createTranslationHover(state.translatedText);
+                  }
+               }
+
+               if (state.kind === "translated") {
+                  // 位置、内容或配置变化后不再注入旧译文。
+                  translationState = { kind: "idle" };
+               }
 
                // 返回 undefined，让自然 Hover 仍由原始语言服务负责显示。
                return undefined;
@@ -152,7 +157,7 @@ export function activate(context: vscode.ExtensionContext): void {
       if (!editor) return;
 
       if (!captured || !isCapturedHoverValid(editor, captured, translationMode)) {
-         translationState = { kind: "idle" };
+         terminateCurrentTranslation();
 
          if (isCapturedHoverLocationValid(editor, captured)) {
             // 内容不可翻译时仍回到捕获位置，便于用户看到原始 Hover。
@@ -179,14 +184,26 @@ export function activate(context: vscode.ExtensionContext): void {
       const targetPosition = editor.document.validatePosition(captured.position);
 
       const key = createHoverKey(editor.document, targetPosition);
+      const state = translationState;
+
+      if (isSameTranslationRequest(state, captured)) {
+         // 同一位置、内容和配置的任务或译文直接复用，不创建新请求。
+         if (state.kind === "translated") {
+            await reopenHover();
+         }
+
+         return;
+      }
+
+      if (state.kind === "loading") {
+         state.terminate();
+      }
 
       const requestId = ++nextRequestId;
+      const task = AggregationTranslation(captured.contents, configTool);
 
       // 把 rejection 转为结果值，使命令和 Hover Provider 能安全等待同一个 Promise。
-      const translationPromise = AggregationTranslation(captured.contents, configTool).then<
-         TranslationOutcome,
-         TranslationOutcome
-      >(
+      const translationPromise = task.promise.then<TranslationOutcome, TranslationOutcome>(
          (translatedText) =>
             translatedText === getOriginalSourceText(captured.contents)
                ? { kind: "unchanged" }
@@ -204,7 +221,10 @@ export function activate(context: vscode.ExtensionContext): void {
          kind: "loading",
          requestId,
          key,
+         contentKey: captured.contentKey,
+         configurationRevision: translationConfigurationRevision,
          promise: translationPromise,
+         terminate: task.terminate,
       };
 
       translationState = request;
@@ -274,6 +294,8 @@ export function activate(context: vscode.ExtensionContext): void {
             kind: "translated",
             requestId,
             key,
+            contentKey: captured.contentKey,
+            configurationRevision: request.configurationRevision,
             translatedText: outcome.translatedText,
          };
       } catch (error) {
@@ -395,13 +417,30 @@ export function activate(context: vscode.ExtensionContext): void {
       }
    });
 
-   context.subscriptions.push(output, provider, triggerCommand, configureCredentialsCommand, clearCredentialsCommand);
+   const configurationChangeSubscription = vscode.workspace.onDidChangeConfiguration((event) => {
+      if (event.affectsConfiguration("floating-translation")) {
+         invalidateTranslationConfiguration();
+      }
+   });
+   const secretChangeSubscription = context.secrets.onDidChange(() => {
+      invalidateTranslationConfiguration();
+   });
+
+   context.subscriptions.push(
+      output,
+      provider,
+      triggerCommand,
+      configureCredentialsCommand,
+      clearCredentialsCommand,
+      configurationChangeSubscription,
+      secretChangeSubscription,
+   );
 }
 
 /** 清理仅存在于扩展宿主内的 Hover 和请求状态。 */
 export function deactivate(): void {
    capturedHover = undefined;
-   translationState = { kind: "idle" };
+   terminateCurrentTranslation();
    running.clear();
 }
 
@@ -456,6 +495,33 @@ function isCapturedHoverLocationValid(
       editor.document.uri.toString() === captured.documentUri &&
       editor.document.version === captured.documentVersion,
    );
+}
+
+/** 判断状态是否属于当前 Hover 内容和翻译配置。 */
+function isSameTranslationRequest(state: TranslationState, captured: CapturedHover): boolean {
+   return (
+      state.kind !== "idle" &&
+      state.key === captured.key &&
+      state.contentKey === captured.contentKey &&
+      state.configurationRevision === translationConfigurationRevision
+   );
+}
+
+/** 终止当前任务并清除只在扩展宿主中保存的翻译状态。 */
+function terminateCurrentTranslation(): void {
+   const state = translationState;
+
+   if (state.kind === "loading") {
+      state.terminate();
+   }
+
+   translationState = { kind: "idle" };
+}
+
+/** 配置或凭据变化后终止旧任务，并使已完成译文失效。 */
+function invalidateTranslationConfiguration(): void {
+   translationConfigurationRevision += 1;
+   terminateCurrentTranslation();
 }
 
 /** 生成能区分文档、版本和字符位置的 Hover 身份键。 */

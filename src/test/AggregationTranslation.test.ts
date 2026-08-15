@@ -1,8 +1,40 @@
 import * as assert from "node:assert/strict";
-import { hasTranslatableContent, translateContents } from "../AggregationTranslation";
+import { AggregationTranslation, hasTranslatableContent, translateContents } from "../AggregationTranslation";
+import type { ConfigTool, FloatingTranslationConfiguration } from "../Utils/ConfigTool";
 import type { TranslatableContent, TranslationPlaceholder } from "../Utils/TranslatableContentAnalyzer";
 
 suite("AggregationTranslation", () => {
+   test("配置读取完成前允许上层终止翻译任务", async () => {
+      let resolveConfiguration: (configuration: FloatingTranslationConfiguration) => void = () => undefined;
+      const configurationPromise = new Promise<FloatingTranslationConfiguration>((resolve) => {
+         resolveConfiguration = resolve;
+      });
+      const configTool = {
+         getAll: () => configurationPromise,
+      } as ConfigTool;
+      const task = AggregationTranslation([{ sourceText: "Text", value: [createValue("Text")] }], configTool);
+
+      task.terminate();
+      resolveConfiguration({
+         translationTool: "baidu",
+         translationMode: "fullText",
+         credentialStorage: "settings",
+         aliyunAccessKeyId: "",
+         aliyunAccessKeySecret: "",
+         baiduAppId: "test-app-id",
+         baiduAppKey: "test-app-key",
+         QPS: 1,
+         openAiCompatibleEndpoint: "",
+         openAiCompatibleApiKey: "",
+         openAiCompatibleModel: "",
+         sourceLanguage: "en",
+         targetLanguage: "zh",
+         customPrompt: "",
+      });
+
+      await assert.rejects(task.promise, /翻译请求已终止/);
+   });
+
    test("本地占位符保护不发送 token 并按原顺序恢复", async () => {
       const placeholders = new Map<string, TranslationPlaceholder>([
          ["param", { token: "{{0761565856:0001}}", source: "*@param*" }],

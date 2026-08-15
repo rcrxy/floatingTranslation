@@ -9,6 +9,16 @@ import { restoreTranslationPlaceholders, type TranslatableContent } from "./Util
 /** 不关心具体服务实现的批量文本翻译函数。 */
 type TranslationInvoker = (sourceTexts: readonly string[]) => Promise<string[]>;
 
+/** 上层可等待或终止的一次完整翻译任务。 */
+export interface TranslationTask {
+   readonly promise: Promise<string>;
+   readonly terminate: () => void;
+}
+
+interface TranslationAdapter {
+   readonly terminate: () => void;
+}
+
 type TranslationPlanPart =
    | {
         readonly kind: "literal";
@@ -27,77 +37,97 @@ type TranslationPlan = {
  * 根据当前配置创建翻译服务，并翻译分析器输出的全部内容。
  * 服务所需配置在这里注入，底层模块不直接依赖 VS Code 配置 API。
  */
-export async function AggregationTranslation(
-   contents: readonly TranslatableContent[],
-   configTool: ConfigTool,
-): Promise<string> {
-   const configuration = await configTool.getAll();
-   // 空源语言交给服务自动识别；空目标语言跟随 VS Code 当前显示语言。
-   const sourceLanguage = configuration.sourceLanguage || "auto";
-   const targetLanguage = configuration.targetLanguage || vscode.env.language;
+export function AggregationTranslation(contents: readonly TranslatableContent[], configTool: ConfigTool): TranslationTask {
+   let adapter: TranslationAdapter | undefined;
+   let terminated = false;
+   const terminate = (): void => {
+      terminated = true;
+      adapter?.terminate();
+   };
+   const promise = startTranslation();
 
-   switch (configuration.translationTool) {
-      case "aliyun": {
-         const aliyun = new AliyunTranslation({
-            sourceLanguage,
-            targetLanguage,
-            accessKeyId: configuration.aliyunAccessKeyId,
-            accessKeySecret: configuration.aliyunAccessKeySecret,
-            concurrency: configuration.QPS,
-         });
-         return translateContents(
-            contents,
-            (sourceTexts) => {
-               outputTranslationInvocation("阿里云翻译", sourceTexts, aliyun.getConcurrentRequestCount(sourceTexts.length));
-               return aliyun.invoke(sourceTexts);
-            },
-            configuration.translationMode,
-         );
+   return { promise, terminate };
+
+   async function startTranslation(): Promise<string> {
+      const configuration = await configTool.getAll();
+
+      if (terminated) {
+         throw new Error("翻译请求已终止");
       }
-      case "baidu": {
-         const baidu = new BaiduTranslation({
-            sourceLanguage,
-            targetLanguage,
-            appId: configuration.baiduAppId,
-            appKey: configuration.baiduAppKey,
-            concurrency: configuration.QPS,
-         });
-         return translateContents(
-            contents,
-            (sourceTexts) => {
-               outputTranslationInvocation("百度翻译", sourceTexts, baidu.getConcurrentRequestCount(sourceTexts.length));
-               return baidu.invoke(sourceTexts);
-            },
-            configuration.translationMode,
-         );
+
+      // 空源语言交给服务自动识别；空目标语言跟随 VS Code 当前显示语言。
+      const sourceLanguage = configuration.sourceLanguage || "auto";
+      const targetLanguage = configuration.targetLanguage || vscode.env.language;
+
+      switch (configuration.translationTool) {
+         case "aliyun": {
+            const aliyun = new AliyunTranslation({
+               sourceLanguage,
+               targetLanguage,
+               accessKeyId: configuration.aliyunAccessKeyId,
+               accessKeySecret: configuration.aliyunAccessKeySecret,
+               concurrency: configuration.QPS,
+            });
+            adapter = aliyun;
+
+            return translateContents(
+               contents,
+               (sourceTexts) => {
+                  outputTranslationInvocation("阿里云翻译", sourceTexts, aliyun.getConcurrentRequestCount(sourceTexts.length));
+                  return aliyun.invoke(sourceTexts);
+               },
+               configuration.translationMode,
+            );
+         }
+         case "baidu": {
+            const baidu = new BaiduTranslation({
+               sourceLanguage,
+               targetLanguage,
+               appId: configuration.baiduAppId,
+               appKey: configuration.baiduAppKey,
+               concurrency: configuration.QPS,
+            });
+            adapter = baidu;
+
+            return translateContents(
+               contents,
+               (sourceTexts) => {
+                  outputTranslationInvocation("百度翻译", sourceTexts, baidu.getConcurrentRequestCount(sourceTexts.length));
+                  return baidu.invoke(sourceTexts);
+               },
+               configuration.translationMode,
+            );
+         }
+         case "openaiCompatible": {
+            const openAiCompatible = new OpenAiCompatibleTranslation({
+               endpoint: configuration.openAiCompatibleEndpoint,
+               apiKey: configuration.openAiCompatibleApiKey,
+               model: configuration.openAiCompatibleModel,
+               sourceLanguage,
+               targetLanguage,
+               translationMode: configuration.translationMode,
+               customPrompt: configuration.customPrompt,
+            });
+            adapter = openAiCompatible;
+
+            return translateContents(
+               contents,
+               (sourceTexts) => {
+                  outputTranslationInvocation(
+                     "OpenAI 兼容服务",
+                     sourceTexts,
+                     openAiCompatible.getConcurrentRequestCount(sourceTexts.length),
+                     configuration.openAiCompatibleEndpoint,
+                     configuration.openAiCompatibleModel,
+                  );
+                  return openAiCompatible.invoke(sourceTexts);
+               },
+               configuration.translationMode,
+            );
+         }
+         default:
+            throw new Error(`不支持的翻译工具：${configuration.translationTool}`);
       }
-      case "openaiCompatible": {
-         const openAiCompatible = new OpenAiCompatibleTranslation({
-            endpoint: configuration.openAiCompatibleEndpoint,
-            apiKey: configuration.openAiCompatibleApiKey,
-            model: configuration.openAiCompatibleModel,
-            sourceLanguage,
-            targetLanguage,
-            translationMode: configuration.translationMode,
-            customPrompt: configuration.customPrompt,
-         });
-         return translateContents(
-            contents,
-            (sourceTexts) => {
-               outputTranslationInvocation(
-                  "OpenAI 兼容服务",
-                  sourceTexts,
-                  openAiCompatible.getConcurrentRequestCount(sourceTexts.length),
-                  configuration.openAiCompatibleEndpoint,
-                  configuration.openAiCompatibleModel,
-               );
-               return openAiCompatible.invoke(sourceTexts);
-            },
-            configuration.translationMode,
-         );
-      }
-      default:
-         throw new Error(`不支持的翻译工具：${configuration.translationTool}`);
    }
 }
 

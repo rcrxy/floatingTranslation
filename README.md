@@ -8,6 +8,8 @@ FloatingTranslation 是一个用于翻译 VS Code 鼠标悬浮窗口（Hover）�
 - 支持阿里云机器翻译、百度翻译开放平台和 OpenAI 兼容服务。
 - 支持完整 Hover、代码块保护、平台回传占位符和本地隔离占位符四种翻译尺度。
 - OpenAI 兼容服务可以连接远程接口或本地模型服务，并支持自定义完整 Chat Completions 请求地址、模型标识符和附加翻译偏好。
+- 相同 Hover 内容的重复触发会复用当前任务或最近译文；对其他 Hover 再次触发时会终止旧任务并翻译最新内容。
+- 阿里云和百度翻译支持可配置的 QPS 与并发上限；批量请求失败或被替换后不再调度剩余片段。
 - 凭据可以保存在 VS Code 普通用户设置或 `SecretStorage` 中。
 
 ## 使用方式
@@ -28,20 +30,30 @@ FloatingTranslation 是一个用于翻译 VS Code 鼠标悬浮窗口（Hover）�
 - `floating-translation.sourceLanguage`：源语言代码，默认为 `auto`。
 - `floating-translation.targetLanguage`：目标语言代码；留空时使用 VS Code 当前显示语言。
 - `floating-translation.credentialStorage`：凭据存储方式，可选普通用户设置或 VS Code `SecretStorage`。
-- `floating-translation.generalPlatformCredentials`：阿里云和百度翻译的聚合配置，包含 `aliyunAccessKeyId`、`aliyunAccessKeySecret`、`baiduAppId` 和 `baiduAppKey`。
+- `floating-translation.generalPlatformCredentials`：阿里云和百度翻译的聚合配置，包含 `QPS`、`aliyunAccessKeyId`、`aliyunAccessKeySecret`、`baiduAppId` 和 `baiduAppKey`。`QPS` 必须是大于或等于 `1` 的整数，默认值为 `50`，同时限制每秒启动的请求数和在途请求数。
 - `floating-translation.openAiCompatibleConfiguration`：OpenAI 兼容服务的聚合配置，包含 `openAiCompatibleEndpoint`、`openAiCompatibleApiKey`、`openAiCompatibleModel` 和 `customPrompt`。
 
-当 `credentialStorage` 为 `settings` 时，扩展从两个聚合配置对象中读取凭据。当 `credentialStorage` 为 `secretStorage` 时，需要先选择翻译平台，再从命令面板执行 `Floating Translation: Configure Credentials`，将当前平台的凭据写入 `SecretStorage`。OpenAI 兼容服务的请求地址、模型标识符和附加翻译偏好始终从聚合配置对象中读取。
+当 `credentialStorage` 为 `settings` 时，扩展从两个聚合配置对象中读取凭据。当 `credentialStorage` 为 `secretStorage` 时，需要先选择翻译平台，再从命令面板执行 `Floating Translation: Configure Credentials`，将当前平台的凭据写入 `SecretStorage`。`QPS` 始终从 `generalPlatformCredentials` 读取；OpenAI 兼容服务的请求地址、模型标识符和附加翻译偏好始终从 `openAiCompatibleConfiguration` 读取。
 
 切换凭据存储方式只会改变凭据读取来源，不会迁移或清理已有内容。执行 `Floating Translation: Clear Credentials` 可以清除当前平台或全部平台的加密存储凭据，不会修改普通用户设置中的任何内容。
 
 普通用户设置中的凭据以明文形式保存，不应提交到版本控制。使用远程翻译服务时，待翻译文本会发送给当前选择的服务，并可能产生费用；请根据实际数据处理要求核对服务条款、日志留存和合规要求。
 
+### 请求调度与结果复用
+
+扩展使用文档版本、Hover 位置、Hover 内容摘要和翻译配置修订号识别一次翻译。同一请求仍在执行时，重复按快捷键不会再次调用翻译服务；同一请求已经完成时，扩展会复用最近译文并重新打开 Hover。
+
+当用户移动到其他 Hover 并再次触发翻译时，扩展会终止旧任务，再翻译最近捕获的内容。翻译服务、语言、翻译尺度、平台配置或加密存储凭据发生变化时，正在执行的旧任务会被终止，已完成的最近译文也会失效。
+
+该结果只保存在当前扩展宿主进程中，并且只保留最近一次翻译；它不是跨窗口、跨重启或多条目的持久缓存。
+
+对拆分后的多段内容，任一片段失败或任务被终止后，扩展会停止调度尚未开始的片段。百度和 OpenAI 兼容适配器会通过取消信号中止在途 HTTP 请求。阿里云适配器会停止后续调度并立即结束扩展侧等待，但当前使用的阿里云 SDK 不支持通过公开接口强制中止已经发出的底层请求，因此少量在途请求仍可能在服务端继续执行。
+
 ### OpenAI 兼容服务
 
 `openAiCompatibleEndpoint` 必须填写完整的 HTTP 或 HTTPS Chat Completions 请求地址，扩展不会自动拼接请求路径。`openAiCompatibleApiKey` 和 `openAiCompatibleModel` 均不能为空。`customPrompt` 用于提供附加翻译偏好，但不能覆盖扩展内置的输出格式和内容保护约束。
 
-OpenAI 兼容请求使用非流式响应，单次请求超时为 30 秒，并以最多 3 个并发请求处理拆分后的文本片段。
+OpenAI 兼容请求使用非流式响应，单次请求超时为 30 秒，并以最多 3 个并发请求处理拆分后的文本片段。OpenAI 兼容服务不使用 `generalPlatformCredentials.QPS`；任务被替换或任一片段失败时，会停止调度后续片段并尝试中止在途请求。
 
 > [!IMPORTANT]
 > **扩展会在 OpenAI 兼容请求中同时提供多种关闭思考模式或推理模式的兼容参数。**

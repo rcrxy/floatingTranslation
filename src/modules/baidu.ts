@@ -33,6 +33,8 @@ interface BaiduTranslationResponse {
 
 /** 调用百度通用文本翻译 API 的服务适配器。 */
 export class BaiduTranslation {
+   /** 控制排队任务和在途 HTTP 请求的终止信号。 */
+   private readonly abortController = new AbortController();
    /** 归一化后的源语言代码。 */
    private readonly sourceLanguage: string;
    /** 归一化后的目标语言代码。 */
@@ -61,17 +63,25 @@ export class BaiduTranslation {
       return getConcurrentRequestCount(textCount, this.concurrency);
    }
 
+   /** 停止调度后续请求并中止当前批次的在途 HTTP 请求。 */
+   public terminate(): void {
+      this.abortController.abort(new Error("百度翻译请求已终止"));
+   }
+
    /** 使用有限速率和并发翻译多段非空文本，返回结果顺序与输入文本顺序一致。 */
    public async invoke(texts: readonly string[]): Promise<string[]> {
       if (!this.appId || !this.appKey) {
          throw new Error("请先配置百度翻译 APPID 和密钥");
       }
 
-      return mapWithConcurrency(texts, this.concurrency, (text) => this.translate(text));
+      return mapWithConcurrency(texts, this.concurrency, (text, signal) => this.translate(text, signal), {
+         requestsPerSecond: this.concurrency,
+         signal: this.abortController.signal,
+      });
    }
 
    /** 为单段文本生成独立签名并发送表单请求。 */
-   private async translate(text: string): Promise<string> {
+   private async translate(text: string, signal: AbortSignal): Promise<string> {
       const sourceText = text.trim();
 
       if (!sourceText) {
@@ -98,7 +108,7 @@ export class BaiduTranslation {
                "Content-Type": "application/x-www-form-urlencoded",
             },
             body: requestBody,
-            signal: AbortSignal.timeout(requestTimeoutMilliseconds),
+            signal: AbortSignal.any([signal, AbortSignal.timeout(requestTimeoutMilliseconds)]),
          });
       } catch (error) {
          const message = error instanceof Error ? error.message : String(error);

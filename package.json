@@ -2,7 +2,7 @@
    "name": "floating-translation",
    "displayName": "Floating Translation",
    "description": "Translate VS Code hover documentation through configurable translation services.",
-   "version": "0.0.4",
+   "version": "0.0.5",
    "publisher": "zeco",
    "icon": "resources/ft_logo.png",
    "license": "SEE LICENSE IN LICENSE",

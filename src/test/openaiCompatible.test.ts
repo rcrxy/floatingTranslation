@@ -83,4 +83,47 @@ suite("OpenAiCompatibleTranslation", () => {
 
       await assert.rejects(service.invoke(["Text"]), /响应中未包含有效译文/);
    });
+
+   test("terminate 中止在途请求并停止后续调度", async () => {
+      const startedTexts: string[] = [];
+      let requestSignal: AbortSignal | undefined;
+      let markRequestStarted: () => void = () => undefined;
+      const requestStarted = new Promise<void>((resolve) => {
+         markRequestStarted = resolve;
+      });
+      const fetchImplementation = (async (_input: string | URL | Request, init?: RequestInit) => {
+         const body = JSON.parse(String(init?.body)) as {
+            readonly messages: readonly { readonly content: string }[];
+         };
+
+         startedTexts.push(body.messages[1].content);
+         requestSignal = init?.signal ?? undefined;
+         markRequestStarted();
+
+         return new Promise<Response>((_resolve, reject) => {
+            requestSignal?.addEventListener("abort", () => reject(requestSignal?.reason), { once: true });
+         });
+      }) as typeof fetch;
+      const service = new OpenAiCompatibleTranslation(
+         {
+            endpoint: "https://example.com/v1/chat/completions",
+            apiKey: "test-api-key",
+            model: "test-model",
+            sourceLanguage: "en",
+            targetLanguage: "zh-CN",
+            translationMode: "fullText",
+            customPrompt: "",
+            concurrency: 1,
+         },
+         fetchImplementation,
+      );
+      const resultPromise = service.invoke(["First.", "Second."]);
+
+      await requestStarted;
+      service.terminate();
+
+      await assert.rejects(resultPromise, /OpenAI 兼容服务请求已终止/);
+      assert.deepEqual(startedTexts, ["First."]);
+      assert.equal(requestSignal?.aborted, true);
+   });
 });

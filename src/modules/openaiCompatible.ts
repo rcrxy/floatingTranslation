@@ -1,4 +1,5 @@
 import type { TranslationMode } from "../Utils/ConfigTool";
+import { getConcurrentRequestCount, mapWithConcurrency, normalizePositiveInteger } from "../Utils/ConcurrentRequestExecutor";
 
 const defaultRequestTimeoutMilliseconds = 30_000;
 const defaultConcurrency = 3;
@@ -41,6 +42,7 @@ interface ChatCompletionResponse {
 
 /** 调用 OpenAI 兼容 Chat Completions HTTP 接口的翻译适配器。 */
 export class OpenAiCompatibleTranslation {
+   private readonly abortController = new AbortController();
    private readonly endpoint: string;
    private readonly apiKey: string;
    private readonly model: string;
@@ -70,7 +72,12 @@ export class OpenAiCompatibleTranslation {
 
    /** 根据本次文本片段数返回实际会启动的并发请求数。 */
    public getConcurrentRequestCount(textCount: number): number {
-      return Math.min(this.concurrency, textCount);
+      return getConcurrentRequestCount(textCount, this.concurrency);
+   }
+
+   /** 停止调度后续请求并中止当前批次的在途 HTTP 请求。 */
+   public terminate(): void {
+      this.abortController.abort(new Error("OpenAI 兼容服务请求已终止"));
    }
 
    /** 使用有限并发逐段翻译，返回结果顺序与输入文本顺序一致。 */
@@ -83,25 +90,13 @@ export class OpenAiCompatibleTranslation {
          throw new Error("请先配置 OpenAI 兼容服务模型标识符");
       }
 
-      const translatedTexts = new Array<string>(texts.length);
-      let nextIndex = 0;
-      const workerCount = this.getConcurrentRequestCount(texts.length);
-
-      await Promise.all(
-         Array.from({ length: workerCount }, async () => {
-            while (nextIndex < texts.length) {
-               const currentIndex = nextIndex;
-               nextIndex += 1;
-               translatedTexts[currentIndex] = await this.translate(texts[currentIndex]);
-            }
-         }),
-      );
-
-      return translatedTexts;
+      return mapWithConcurrency(texts, this.concurrency, (text, signal) => this.translate(text, signal), {
+         signal: this.abortController.signal,
+      });
    }
 
    /** 将单段不可信原文放入独立 user 消息并请求非流式译文。 */
-   private async translate(text: string): Promise<string> {
+   private async translate(text: string, signal: AbortSignal): Promise<string> {
       const sourceText = text.trim();
 
       if (!sourceText) {
@@ -135,7 +130,7 @@ export class OpenAiCompatibleTranslation {
                reasoning_effort: "none", // other
                //#endregion
             }),
-            signal: AbortSignal.timeout(this.requestTimeoutMilliseconds),
+            signal: AbortSignal.any([signal, AbortSignal.timeout(this.requestTimeoutMilliseconds)]),
          });
       } catch (error) {
          const message = error instanceof Error ? error.message : String(error);
@@ -228,9 +223,4 @@ function normalizeEndpoint(value: string): string {
    }
 
    return url.toString();
-}
-
-/** 将无效的可选正整数配置回退为内置默认值。 */
-function normalizePositiveInteger(value: number | undefined, fallback: number): number {
-   return Number.isSafeInteger(value) && (value ?? 0) > 0 ? value! : fallback;
 }
