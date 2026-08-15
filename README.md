@@ -8,7 +8,8 @@ FloatingTranslation 是一个用于翻译 VS Code 鼠标悬浮窗口（Hover）�
 - 支持阿里云机器翻译、百度翻译开放平台和 OpenAI 兼容服务。
 - 支持完整 Hover、代码块保护、平台回传占位符和本地隔离占位符四种翻译尺度。
 - OpenAI 兼容服务可以连接远程接口或本地模型服务，并支持自定义完整 Chat Completions 请求地址、模型标识符和附加翻译偏好。
-- 相同 Hover 内容的重复触发会复用当前任务或最近译文；对其他 Hover 再次触发时会终止旧任务并翻译最新内容。
+- 同一 Hover 的翻译仍在执行时会复用当前任务；已有译文时再次按快捷键会抛弃匹配缓存并重新调用翻译服务。
+- 翻译成功后的最终译文会按当前工作区缓存；自然 Hover 再次出现时命中缓存即可直接显示，不需要再次触发翻译。
 - 阿里云和百度翻译支持可配置的 QPS 与并发上限；批量请求失败或被替换后不再调度剩余片段。
 - 凭据可以保存在 VS Code 普通用户设置或 `SecretStorage` 中。
 
@@ -20,6 +21,7 @@ FloatingTranslation 是一个用于翻译 VS Code 鼠标悬浮窗口（Hover）�
 2. 在 VS Code 设置中选择翻译服务，并配置对应的服务参数、凭据和语言代码。
 3. 按 `Ctrl+Alt+T`，或从命令面板执行 `Floating Translation: trigger`。
 4. 扩展会回到最近捕获的 Hover 位置，重新打开 Hover，并在翻译完成后追加译文。
+5. 后续再次显示相同 Hover 时，若当前工作区存在匹配缓存，扩展会直接追加缓存译文。
 
 默认快捷键为 `Ctrl+Alt+T`。如有冲突，可以在 VS Code 键盘快捷方式设置中为命令 `floatingTranslation.trigger` 重新绑定快捷键。
 
@@ -27,6 +29,7 @@ FloatingTranslation 是一个用于翻译 VS Code 鼠标悬浮窗口（Hover）�
 
 - `floating-translation.translationTool`：当前使用的翻译服务，可选阿里云、百度翻译或 OpenAI 兼容服务。
 - `floating-translation.translationMode`：控制翻译内容尺度，默认为“代码块保护”。
+- `floating-translation.maxCacheCount`：当前工作区最多保存的翻译缓存条目数，必须是大于或等于 `1` 的整数，默认值为 `300`。
 - `floating-translation.sourceLanguage`：源语言代码，默认为 `auto`。
 - `floating-translation.targetLanguage`：目标语言代码；留空时使用 VS Code 当前显示语言。
 - `floating-translation.credentialStorage`：凭据存储方式，可选普通用户设置或 VS Code `SecretStorage`。
@@ -37,15 +40,19 @@ FloatingTranslation 是一个用于翻译 VS Code 鼠标悬浮窗口（Hover）�
 
 切换凭据存储方式只会改变凭据读取来源，不会迁移或清理已有内容。执行 `Floating Translation: Clear Credentials` 可以清除当前平台或全部平台的加密存储凭据，不会修改普通用户设置中的任何内容。
 
+翻译缓存保存在 VS Code 的 `workspaceState` 中，跟随当前工作区，不写入项目目录，也不会在不同工作区之间共享。扩展不会对缓存内容额外加密；缓存只保存组装完成的最终译文，不保存凭据。执行 `Floating Translation: Clear Workspace Cache` 可以清除当前工作区的全部翻译缓存。
+
 普通用户设置中的凭据以明文形式保存，不应提交到版本控制。使用远程翻译服务时，待翻译文本会发送给当前选择的服务，并可能产生费用；请根据实际数据处理要求核对服务条款、日志留存和合规要求。
 
 ### 请求调度与结果复用
 
-扩展使用文档版本、Hover 位置、Hover 内容摘要和翻译配置修订号识别一次翻译。同一请求仍在执行时，重复按快捷键不会再次调用翻译服务；同一请求已经完成时，扩展会复用最近译文并重新打开 Hover。
+扩展使用文档版本、Hover 位置、Hover 内容摘要和翻译配置修订号识别一次当前任务。同一请求仍在执行时，重复按快捷键不会再次调用翻译服务；同一请求已经完成或自然 Hover 已命中缓存时，再次按快捷键会删除匹配缓存并重新调用翻译服务。
 
 当用户移动到其他 Hover 并再次触发翻译时，扩展会终止旧任务，再翻译最近捕获的内容。翻译服务、语言、翻译尺度、平台配置或加密存储凭据发生变化时，正在执行的旧任务会被终止，已完成的最近译文也会失效。
 
-该结果只保存在当前扩展宿主进程中，并且只保留最近一次翻译；它不是跨窗口、跨重启或多条目的持久缓存。
+成功翻译的最终组装文本会写入当前工作区的持久缓存，因此扩展重启后仍可在自然 Hover 命中缓存。快捷键强制刷新成功后，新译文会重新写入缓存；刷新失败时不会继续回落到已抛弃的旧译文。缓存键包含原始 Hover 内容摘要、翻译平台、翻译模式、源语言、目标语言，以及 OpenAI 兼容服务的 Endpoint、模型和自定义提示词；这些语义条件变化后不会误用旧译文。凭据、凭据存储方式、QPS 和文档版本不进入缓存键。
+
+缓存使用最近最少使用策略，最多保留 `floating-translation.maxCacheCount` 条目。设置容量变小时会立即裁剪旧条目；执行 `Floating Translation: Clear Workspace Cache` 会清空持久缓存和当前进程中的最近译文状态。
 
 对拆分后的多段内容，任一片段失败或任务被终止后，扩展会停止调度尚未开始的片段。百度和 OpenAI 兼容适配器会通过取消信号中止在途 HTTP 请求。阿里云适配器会停止后续调度并立即结束扩展侧等待，但当前使用的阿里云 SDK 不支持通过公开接口强制中止已经发出的底层请求，因此少量在途请求仍可能在服务端继续执行。
 

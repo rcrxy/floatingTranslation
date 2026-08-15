@@ -5,6 +5,7 @@ import { ConfigTool, normalizeTranslationMode } from "./Utils/ConfigTool";
 import { output } from "./Utils/output";
 import { TranslatableContentAnalyzer } from "./Utils/TranslatableContentAnalyzer";
 import { AggregationTranslation, hasTranslatableContent } from "./AggregationTranslation";
+import { createTranslationCacheKey, TranslationCache } from "./Utils/TranslationCache";
 
 // executeHoverProvider 会回调本扩展的 Provider，用位置键阻断同一次递归调用。
 const running = new Set<string>();
@@ -80,6 +81,16 @@ let translationConfigurationRevision = 0;
 /** 注册 Hover Provider、翻译命令和凭据管理命令。 */
 export function activate(context: vscode.ExtensionContext): void {
    const configTool = new ConfigTool(context.secrets);
+   const translationCache = new TranslationCache(
+      context.workspaceState,
+      () => configTool.getMaxCacheCount(),
+      (error) => output.appendLine(`缓存持久化失败：${formatError(error)}`),
+   );
+
+   void translationCache.trim().catch((error) => {
+      output.appendLine(`整理翻译缓存失败：${formatError(error)}`);
+   });
+
    // Provider 不替换自然 Hover，只负责观察原始 Provider 的结果并在翻译阶段追加译文。
    const provider = vscode.languages.registerHoverProvider(
       { scheme: "*" },
@@ -107,6 +118,8 @@ export function activate(context: vscode.ExtensionContext): void {
                }
 
                const analysis = new TranslatableContentAnalyzer(hovers).invoke();
+               const translationMode = normalizeTranslationMode(configTool.getSelect("translationMode"));
+               const cacheKey = createCurrentTranslationCacheKey(analysis.key, configTool, translationMode);
 
                const captured: CapturedHover = {
                   key,
@@ -135,7 +148,46 @@ export function activate(context: vscode.ExtensionContext): void {
                   translationState = { kind: "idle" };
                }
 
-               // 返回 undefined，让自然 Hover 仍由原始语言服务负责显示。
+               if (!hasTranslatableContent(captured.contents, translationMode)) {
+                  return undefined;
+               }
+
+               const cachedText = await translationCache.get(cacheKey);
+
+               if (token.isCancellationRequested) {
+                  return undefined;
+               }
+
+               const latestState = translationState;
+
+               if (isSameTranslationRequest(latestState, captured)) {
+                  if (latestState.kind === "loading") {
+                     return providePendingTranslationHover(latestState, token);
+                  }
+
+                  if (latestState.kind === "translated") {
+                     return createTranslationHover(latestState.translatedText);
+                  }
+               }
+
+               if (cachedText !== undefined) {
+                  if (translationState.kind === "loading") {
+                     translationState.terminate();
+                  }
+
+                  translationState = {
+                     kind: "translated",
+                     requestId: ++nextRequestId,
+                     key,
+                     contentKey: captured.contentKey,
+                     configurationRevision: translationConfigurationRevision,
+                     translatedText: cachedText,
+                  };
+
+                  return createTranslationHover(cachedText);
+               }
+
+               // 未命中时返回 undefined，让自然 Hover 仍由原始语言服务负责显示。
                return undefined;
             } catch (error) {
                capturedHover = undefined;
@@ -186,20 +238,24 @@ export function activate(context: vscode.ExtensionContext): void {
       const targetPosition = editor.document.validatePosition(captured.position);
 
       const key = createHoverKey(editor.document, targetPosition);
+      const cacheKey = createCurrentTranslationCacheKey(captured.contentKey, configTool, translationMode);
       const state = translationState;
 
-      if (isSameTranslationRequest(state, captured)) {
-         // 同一位置、内容和配置的任务或译文直接复用，不创建新请求。
-         if (state.kind === "translated") {
-            await reopenHover();
-         }
-
+      if (isSameTranslationRequest(state, captured) && state.kind === "loading") {
+         // 同一请求仍在执行时复用当前任务，避免重复调用翻译服务。
          return;
       }
 
       if (state.kind === "loading") {
          state.terminate();
       }
+
+      translationState = { kind: "idle" };
+
+      // 主动触发表示强制刷新；同步清除内存条目，并按写入队列删除持久缓存。
+      void translationCache.delete(cacheKey).catch((error) => {
+         output.appendLine(`删除翻译缓存失败：${formatError(error)}`);
+      });
 
       const requestId = ++nextRequestId;
       const task = AggregationTranslation(captured.contents, configTool);
@@ -300,6 +356,10 @@ export function activate(context: vscode.ExtensionContext): void {
             configurationRevision: request.configurationRevision,
             translatedText: outcome.translatedText,
          };
+
+         void translationCache.set(cacheKey, outcome.translatedText).catch((error) => {
+            output.appendLine(`写入翻译缓存失败：${formatError(error)}`);
+         });
       } catch (error) {
          const currentState = translationState;
 
@@ -419,9 +479,28 @@ export function activate(context: vscode.ExtensionContext): void {
       }
    });
 
+   const clearWorkspaceCacheCommand = vscode.commands.registerCommand("floatingTranslation.clearWorkspaceCache", async () => {
+      terminateCurrentTranslation();
+
+      const persisted = await translationCache.clear();
+
+      if (!persisted) {
+         void vscode.window.showErrorMessage("工作区翻译缓存已清空，但持久化失败，详细信息请查看 FloatingTranslation 输出");
+         return;
+      }
+
+      void vscode.window.showInformationMessage("当前工作区的翻译缓存已清空");
+   });
+
    const configurationChangeSubscription = vscode.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration("floating-translation")) {
          invalidateTranslationConfiguration();
+      }
+
+      if (event.affectsConfiguration("floating-translation.maxCacheCount")) {
+         void translationCache.trim().catch((error) => {
+            output.appendLine(`整理翻译缓存失败：${formatError(error)}`);
+         });
       }
    });
    const secretChangeSubscription = context.secrets.onDidChange(() => {
@@ -434,6 +513,7 @@ export function activate(context: vscode.ExtensionContext): void {
       triggerCommand,
       configureCredentialsCommand,
       clearCredentialsCommand,
+      clearWorkspaceCacheCommand,
       configurationChangeSubscription,
       secretChangeSubscription,
    );
@@ -534,6 +614,24 @@ function createHoverKey(document: vscode.TextDocument, position: vscode.Position
 /** 按原始 Hover 展示顺序拼接完整 Markdown，用于判断翻译结果是否发生变化。 */
 function getOriginalSourceText(contents: readonly TranslatableContent[]): string {
    return contents.map((content) => content.sourceText).join("\n\n");
+}
+
+/** 使用当前生效的翻译语义配置生成缓存键，排除凭据和请求调度参数。 */
+function createCurrentTranslationCacheKey(
+   contentKey: string,
+   configTool: ConfigTool,
+   translationMode: TranslationMode,
+): string {
+   return createTranslationCacheKey({
+      contentKey,
+      translationTool: configTool.getSelect("translationTool"),
+      translationMode,
+      sourceLanguage: configTool.getSelect("sourceLanguage") || "auto",
+      targetLanguage: configTool.getSelect("targetLanguage") || vscode.env.language,
+      openAiCompatibleEndpoint: configTool.getSelect("openAiCompatibleEndpoint"),
+      openAiCompatibleModel: configTool.getSelect("openAiCompatibleModel"),
+      customPrompt: configTool.getSelect("customPrompt"),
+   });
 }
 
 /** 关闭旧 Hover，并在下一个事件循环重新打开当前光标位置的 Hover。 */

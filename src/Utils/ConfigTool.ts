@@ -6,6 +6,7 @@ import type {
    TranslationMode,
 } from "../@types/TranslationConfiguration";
 import { normalizePositiveInteger } from "./ConcurrentRequestExecutor";
+import { defaultTranslationCacheCount } from "./TranslationCache";
 
 type CredentialName = "aliyunAccessKeyId" | "aliyunAccessKeySecret" | "baiduAppId" | "baiduAppKey" | "openAiCompatibleApiKey";
 type GeneralPlatformCredentialName = Exclude<CredentialName, "openAiCompatibleApiKey">;
@@ -147,6 +148,15 @@ export class ConfigTool {
       }
 
       return vscode.workspace.getConfiguration(configurationSection).get<string>(name, defaultValues[name]).trim();
+   }
+
+   /** 读取当前工作区的缓存容量，并将无效值回退到默认值。 */
+   public getMaxCacheCount(): number {
+      const value = vscode.workspace
+         .getConfiguration(configurationSection)
+         .get<unknown>("maxCacheCount", defaultTranslationCacheCount);
+
+      return normalizePositiveInteger(value, defaultTranslationCacheCount);
    }
 
    /** 并行读取多个配置项；凭据会自动从当前选中的存储读取。 */

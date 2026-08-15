@@ -100,6 +100,14 @@
                "description": "控制发送给翻译服务的内容范围和受保护内容的处理方式。",
                "order": 3
             },
+            "floating-translation.maxCacheCount": {
+               "type": "integer",
+               "minimum": 1,
+               "default": 300,
+               "scope": "window",
+               "description": "当前工作区最多保存的翻译缓存条目数。",
+               "order": 5
+            },
             "floating-translation.credentialStorage": {
                "type": "string",
                "enum": [
