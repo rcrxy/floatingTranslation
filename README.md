@@ -24,7 +24,7 @@ FloatingTranslation 是一个用于翻译 VS Code 鼠标悬浮窗口（Hover）�
 
 1. 将鼠标移动到能够显示 Hover 的代码位置，等待原始 Hover 出现。
 2. 在 VS Code 设置中选择翻译服务，并配置对应的服务参数、凭据和语言代码。
-3. 按 `Ctrl+Alt+T`，或从命令面板执行 `Floating Translation: trigger`。
+3. 按 `Ctrl+Alt+T`，或从命令面板执行 `Floating Translation: Translate Hover`。
 4. 扩展会回到最近捕获的 Hover 位置，重新打开 Hover，并在翻译完成后追加译文。
 5. 后续再次显示相同 Hover 时，若当前工作区存在匹配缓存，扩展会直接追加缓存译文。
 

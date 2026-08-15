@@ -16,3 +16,6 @@ vsc-extension-quickstart.md
 .prettierignore
 .prettierrc.json
 package-lock.json
+.github/**
+CONTRIBUTING.md
+SECURITY.md

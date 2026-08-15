@@ -2,11 +2,7 @@ import * as vscode from "vscode";
 import type { TranslationProvider } from "./@types/TranslationProvider";
 import type { TranslationInvoker, TranslationTask } from "./@types/TranslationTask";
 import type { TranslationMode } from "./@types/TranslationConfiguration";
-import type {
-   TranslatableContent,
-   TranslatableContentValue,
-   TranslationPlaceholder,
-} from "./@types/TranslatableContent";
+import type { TranslatableContent, TranslatableContentValue, TranslationPlaceholder } from "./@types/TranslatableContent";
 import { AliyunTranslation } from "./modules/aliyun";
 import { BaiduTranslation } from "./modules/baidu";
 import { OpenAiCompatibleTranslation } from "./modules/openaiCompatible";
@@ -292,7 +288,7 @@ async function translateWithLocalPlaceholders(
 /** 调用平台并统一校验批量响应数量。 */
 async function invokeTranslation(sourceTexts: readonly string[], translate: TranslationInvoker): Promise<string[]> {
    if (sourceTexts.length === 0) {
-   throw new Error(vscode.l10n.t("There is no translatable content"));
+      throw new Error(vscode.l10n.t("There is no translatable content"));
    }
 
    const translatedTexts = await translate(sourceTexts);
