@@ -26,5 +26,5 @@
    "configuration.credentialStorage.description": "各翻译平台凭据的读写方式。选择加密存储后，请先选择翻译平台，再执行 `悬浮翻译：配置凭据` 写入该平台凭据。",
    "configuration.generalPlatformCredentials.qps.description": "每秒启动及同时进行的最大请求数。",
    "configuration.generalPlatformCredentials.description": "一般翻译开放平台的请求上限与凭据。QPS 始终生效；凭据仅在存储方式为明文设置时读取，`floating-translation.credentialStorage` 为 `secretStorage` 时凭据字段失效。",
-   "configuration.openAiCompatibleConfiguration.description": "OpenAI 兼容服务配置。请求地址必须是完整的 Chat Completions 地址，扩展不会自动拼接路径；模型标识符必须按目标服务的实际模型列表填写；自定义提示词不能覆盖扩展内置的输出与结构保护约束。API Key 仅在凭据存储方式为明文设置时读取。"
+   "configuration.openAiCompatibleConfiguration.description": "OpenAI 兼容服务配置。请求地址必须是完整的 Chat Completions 地址，扩展不会自动拼接路径；模型标识符必须按目标服务的实际模型列表填写；非空的自定义提示词在去除首尾空白后会作为完整的纯文本 system 消息，完全替换扩展的内置提示词，且不执行变量替换，其中的 `{sourceLanguage}`、`{targetLanguage}` 和双花括号内容均按字面发送。README 中的两个语言标记仅表示内置提示词运行时插入的值，`{{1234567890:0001}}` 是平台回传占位符 token 的字面示例，不是模板语法。API Key 仅在凭据存储方式为明文设置时读取。"
 }

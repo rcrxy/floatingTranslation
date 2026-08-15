@@ -158,6 +158,12 @@ export function buildTranslationPrompt(
    targetLanguage: string,
    customPrompt: string,
 ): string {
+   const preference = customPrompt.trim();
+
+   if (preference) {
+      return preference;
+   }
+
    const languageInstruction = `Translate from ${sourceLanguage || "auto-detected language"} to ${targetLanguage}.`;
    const sharedConstraints = [
       languageInstruction,
@@ -183,13 +189,8 @@ export function buildTranslationPrompt(
          "Translate only natural-language prose. Preserve the complete Markdown structure, code, identifiers, URLs, HTML, whitespace, and ordering.",
       ],
    };
-   const preference = customPrompt.trim();
 
-   return [
-      ...sharedConstraints,
-      ...modeConstraints[mode],
-      ...(preference ? [`Additional preference: ${preference}`] : []),
-   ].join("\n");
+   return [...sharedConstraints, ...modeConstraints[mode]].join("\n");
 }
 
 /** 只接受用户明确填写的 HTTP(S) 完整端点。 */

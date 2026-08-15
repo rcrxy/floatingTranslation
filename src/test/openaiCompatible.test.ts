@@ -45,9 +45,14 @@ suite("OpenAiCompatibleTranslation", () => {
       const firstMessages = requests[0].body.messages as readonly { readonly role: string; readonly content: string }[];
 
       assert.equal(firstMessages[0].role, "system");
-      assert.match(firstMessages[0].content, /only natural-language fragments/);
-      assert.match(firstMessages[0].content, /Additional preference: 使用简洁术语。/);
+      assert.equal(firstMessages[0].content, "使用简洁术语。");
       assert.deepEqual(firstMessages[1], { role: "user", content: "First." });
+   });
+
+   test("自定义 Prompt 完整替换内置 Prompt", () => {
+      const customPrompt = "  完整自定义提示词。\n保留指定格式。  ";
+
+      assert.equal(buildTranslationPrompt("fullText", "en", "zh-CN", customPrompt), "完整自定义提示词。\n保留指定格式。");
    });
 
    test("四种翻译模式使用独立 Prompt", () => {
