@@ -1,3 +1,4 @@
+import * as vscode from "vscode";
 import type { TranslationProvider } from "../@types/TranslationProvider";
 import type { TranslationMode } from "../@types/TranslationConfiguration";
 import type { OpenAiCompatibleTranslationOptions } from "../@types/TranslationProviderOptions";
@@ -22,7 +23,7 @@ interface ChatCompletionResponse {
 
 /** 调用 OpenAI 兼容 Chat Completions HTTP 接口的翻译适配器。 */
 export class OpenAiCompatibleTranslation implements TranslationProvider {
-   public readonly serviceName = "OpenAI 兼容服务";
+   public readonly serviceName = vscode.l10n.t("OpenAI-compatible service");
    private readonly abortController = new AbortController();
    private readonly endpoint: string;
    private readonly apiKey: string;
@@ -58,17 +59,17 @@ export class OpenAiCompatibleTranslation implements TranslationProvider {
 
    /** 停止调度后续请求并中止当前批次的在途 HTTP 请求。 */
    public terminate(): void {
-      this.abortController.abort(new Error("OpenAI 兼容服务请求已终止"));
+      this.abortController.abort(new Error(vscode.l10n.t("The OpenAI-compatible service request was terminated")));
    }
 
    /** 使用有限并发逐段翻译，返回结果顺序与输入文本顺序一致。 */
    public async invoke(texts: readonly string[]): Promise<string[]> {
       if (!this.apiKey) {
-         throw new Error("请先配置 OpenAI 兼容服务 API Key");
+         throw new Error(vscode.l10n.t("Configure the OpenAI-compatible service API key first"));
       }
 
       if (!this.model) {
-         throw new Error("请先配置 OpenAI 兼容服务模型标识符");
+         throw new Error(vscode.l10n.t("Configure the OpenAI-compatible service model identifier first"));
       }
 
       return mapWithConcurrency(texts, this.concurrency, (text, signal) => this.translate(text, signal), {
@@ -81,7 +82,7 @@ export class OpenAiCompatibleTranslation implements TranslationProvider {
       const sourceText = text.trim();
 
       if (!sourceText) {
-         throw new Error("OpenAI 兼容服务的待翻译文本不能为空");
+         throw new Error(vscode.l10n.t("Text submitted to the OpenAI-compatible service cannot be empty"));
       }
 
       let response: Response;
@@ -116,11 +117,17 @@ export class OpenAiCompatibleTranslation implements TranslationProvider {
       } catch (error) {
          const message = error instanceof Error ? error.message : String(error);
 
-         throw new Error(`OpenAI 兼容服务请求失败：${message}`, { cause: error });
+         throw new Error(vscode.l10n.t("OpenAI-compatible service request failed: {message}", { message }), {
+            cause: error,
+         });
       }
 
       if (!response.ok) {
-         throw new Error(`OpenAI 兼容服务请求失败，HTTP 状态码：${response.status}`);
+         throw new Error(
+            vscode.l10n.t("OpenAI-compatible service request failed with HTTP status: {status}", {
+               status: response.status,
+            }),
+         );
       }
 
       let responseBody: ChatCompletionResponse;
@@ -128,14 +135,16 @@ export class OpenAiCompatibleTranslation implements TranslationProvider {
       try {
          responseBody = (await response.json()) as ChatCompletionResponse;
       } catch (error) {
-         throw new Error("OpenAI 兼容服务响应不是有效 JSON", { cause: error });
+         throw new Error(vscode.l10n.t("The OpenAI-compatible service response is not valid JSON"), {
+            cause: error,
+         });
       }
 
       const message = responseBody.choices?.[0]?.message;
       const content = message?.content;
 
       if (typeof content !== "string" || !content.trim()) {
-         throw new Error("OpenAI 兼容服务响应中未包含有效译文");
+         throw new Error(vscode.l10n.t("The OpenAI-compatible service response did not contain a valid translation"));
       }
 
       return content.trim();
@@ -188,7 +197,7 @@ function normalizeEndpoint(value: string): string {
    const endpoint = value.trim();
 
    if (!endpoint) {
-      throw new Error("请先配置 OpenAI 兼容服务完整请求地址");
+      throw new Error(vscode.l10n.t("Configure the complete OpenAI-compatible service endpoint first"));
    }
 
    let url: URL;
@@ -196,11 +205,11 @@ function normalizeEndpoint(value: string): string {
    try {
       url = new URL(endpoint);
    } catch (error) {
-      throw new Error("OpenAI 兼容服务请求地址无效", { cause: error });
+      throw new Error(vscode.l10n.t("The OpenAI-compatible service endpoint is invalid"), { cause: error });
    }
 
    if (url.protocol !== "https:" && url.protocol !== "http:") {
-      throw new Error("OpenAI 兼容服务请求地址仅支持 HTTP 或 HTTPS 协议");
+      throw new Error(vscode.l10n.t("The OpenAI-compatible service endpoint supports only HTTP or HTTPS"));
    }
 
    return url.toString();

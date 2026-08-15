@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import * as vscode from "vscode";
 import type { TranslationProvider } from "../@types/TranslationProvider";
 import type { BaiduTranslationOptions } from "../@types/TranslationProviderOptions";
 import { getConcurrentRequestCount, mapWithConcurrency, normalizePositiveInteger } from "../Utils/ConcurrentRequestExecutor";
@@ -21,7 +22,7 @@ interface BaiduTranslationResponse {
 
 /** 调用百度通用文本翻译 API 的服务适配器。 */
 export class BaiduTranslation implements TranslationProvider {
-   public readonly serviceName = "百度翻译";
+   public readonly serviceName = vscode.l10n.t("Baidu Translate");
    /** 控制排队任务和在途 HTTP 请求的终止信号。 */
    private readonly abortController = new AbortController();
    /** 归一化后的源语言代码。 */
@@ -54,13 +55,13 @@ export class BaiduTranslation implements TranslationProvider {
 
    /** 停止调度后续请求并中止当前批次的在途 HTTP 请求。 */
    public terminate(): void {
-      this.abortController.abort(new Error("百度翻译请求已终止"));
+      this.abortController.abort(new Error(vscode.l10n.t("The Baidu Translate request was terminated")));
    }
 
    /** 使用有限速率和并发翻译多段非空文本，返回结果顺序与输入文本顺序一致。 */
    public async invoke(texts: readonly string[]): Promise<string[]> {
       if (!this.appId || !this.appKey) {
-         throw new Error("请先配置百度翻译 APPID 和密钥");
+         throw new Error(vscode.l10n.t("Configure the Baidu Translate APPID and secret key first"));
       }
 
       return mapWithConcurrency(texts, this.concurrency, (text, signal) => this.translate(text, signal), {
@@ -74,7 +75,7 @@ export class BaiduTranslation implements TranslationProvider {
       const sourceText = text.trim();
 
       if (!sourceText) {
-         throw new Error("百度翻译的待翻译文本不能为空");
+         throw new Error(vscode.l10n.t("Text submitted to Baidu Translate cannot be empty"));
       }
 
       const salt = randomBytes(16).toString("hex");
@@ -102,23 +103,32 @@ export class BaiduTranslation implements TranslationProvider {
       } catch (error) {
          const message = error instanceof Error ? error.message : String(error);
 
-         throw new Error(`百度翻译请求失败：${message}`, { cause: error });
+         throw new Error(vscode.l10n.t("Baidu Translate request failed: {message}", { message }), { cause: error });
       }
 
       if (!response.ok) {
-         throw new Error(`百度翻译请求失败，HTTP 状态码：${response.status}`);
+         throw new Error(
+            vscode.l10n.t("Baidu Translate request failed with HTTP status: {status}", {
+               status: response.status,
+            }),
+         );
       }
 
       const responseBody = (await response.json()) as BaiduTranslationResponse;
 
       if (responseBody.error_code !== undefined) {
-         throw new Error(`百度翻译请求失败，错误码：${responseBody.error_code}，错误信息：${responseBody.error_msg ?? "未知"}`);
+         throw new Error(
+            vscode.l10n.t("Baidu Translate request failed with code {code}: {message}", {
+               code: responseBody.error_code,
+               message: responseBody.error_msg ?? vscode.l10n.t("unknown"),
+            }),
+         );
       }
 
       const translatedResults = responseBody.trans_result;
 
       if (!translatedResults?.length || translatedResults.some((result) => typeof result.dst !== "string")) {
-         throw new Error("百度翻译响应中未包含有效译文");
+         throw new Error(vscode.l10n.t("The Baidu Translate response did not contain a valid translation"));
       }
 
       return translatedResults.map((result) => result.dst).join("\n");

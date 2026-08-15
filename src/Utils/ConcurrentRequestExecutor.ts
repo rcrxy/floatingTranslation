@@ -1,3 +1,4 @@
+import * as vscode from "vscode";
 import type { ConcurrentRequestOptions, RequestScheduler } from "../@types/ConcurrentRequest";
 
 /** 将无效值回退为调用方提供的正整数默认值。 */
@@ -108,5 +109,5 @@ function throwIfAborted(signal: AbortSignal): void {
 
 /** 将浏览器允许的任意 abort reason 归一化为 Error。 */
 function getAbortReason(signal: AbortSignal): Error {
-   return signal.reason instanceof Error ? signal.reason : new Error("翻译请求已终止");
+   return signal.reason instanceof Error ? signal.reason : new Error(vscode.l10n.t("The translation request was terminated"));
 }

@@ -1,7 +1,7 @@
 {
    "name": "floating-translation",
-   "displayName": "Floating Translation",
-   "description": "Translate VS Code hover documentation through configurable translation services.",
+   "displayName": "%extension.displayName%",
+   "description": "%extension.description%",
    "version": "0.0.5",
    "publisher": "zeco",
    "icon": "resources/ft_logo.png",
@@ -20,19 +20,20 @@
       "onStartupFinished"
    ],
    "main": "./dist/extension.js",
+   "l10n": "./l10n",
    "contributes": {
       "commands": [
          {
             "command": "floatingTranslation.trigger",
-            "title": "Floating Translation: trigger"
+            "title": "%command.trigger.title%"
          },
          {
             "command": "floatingTranslation.configureCredentials",
-            "title": "Floating Translation: Configure Credentials"
+            "title": "%command.configureCredentials.title%"
          },
          {
             "command": "floatingTranslation.clearCredentials",
-            "title": "Floating Translation: Clear Credentials"
+            "title": "%command.clearCredentials.title%"
          }
       ],
       "keybindings": [
@@ -42,20 +43,20 @@
          }
       ],
       "configuration": {
-         "title": "Floating Translation",
+         "title": "%configuration.title%",
          "properties": {
             "floating-translation.sourceLanguage": {
                "type": "string",
                "default": "auto",
                "scope": "application",
-               "description": "待翻译文本的原语言代码。",
+               "description": "%configuration.sourceLanguage.description%",
                "order": 0
             },
             "floating-translation.targetLanguage": {
                "type": "string",
                "default": "",
                "scope": "application",
-               "markdownDescription": "译文的目标语言代码。留空时使用 VS Code 当前的显示语言。",
+               "markdownDescription": "%configuration.targetLanguage.description%",
                "order": 1
             },
             "floating-translation.translationTool": {
@@ -66,13 +67,13 @@
                   "openaiCompatible"
                ],
                "enumItemLabels": [
-                  "阿里云",
-                  "百度翻译",
-                  "OpenAI 兼容服务"
+                  "%configuration.translationTool.aliyun%",
+                  "%configuration.translationTool.baidu%",
+                  "%configuration.translationTool.openAiCompatible%"
                ],
                "default": "aliyun",
                "scope": "application",
-               "description": "当前使用的翻译平台。",
+               "description": "%configuration.translationTool.description%",
                "order": 2
             },
             "floating-translation.translationMode": {
@@ -84,20 +85,20 @@
                   "localPlaceholders"
                ],
                "enumItemLabels": [
-                  "全文直译",
-                  "代码块保护",
-                  "占位符保护（平台回传）",
-                  "占位符保护（本地隔离）"
+                  "%configuration.translationMode.fullText%",
+                  "%configuration.translationMode.codeBlocks%",
+                  "%configuration.translationMode.remotePlaceholders%",
+                  "%configuration.translationMode.localPlaceholders%"
                ],
                "enumDescriptions": [
-                  "将完整 Hover Markdown 发送给翻译服务，不保护代码或格式。",
-                  "保留围栏代码块和缩进代码，其余原始 Markdown 发送给翻译服务。",
-                  "将占位符随正文发送给翻译服务，保留句子上下文，但部分平台可能修改占位符。",
-                  "占位符仅保留在本地，只发送占位符之间的自然语言，保护最可靠但会减少上下文，降低翻译准确性。"
+                  "%configuration.translationMode.fullText.description%",
+                  "%configuration.translationMode.codeBlocks.description%",
+                  "%configuration.translationMode.remotePlaceholders.description%",
+                  "%configuration.translationMode.localPlaceholders.description%"
                ],
                "default": "codeBlocks",
                "scope": "application",
-               "description": "控制发送给翻译服务的内容范围和受保护内容的处理方式。",
+               "description": "%configuration.translationMode.description%",
                "order": 3
             },
             "floating-translation.maxCacheCount": {
@@ -105,7 +106,7 @@
                "minimum": 1,
                "default": 300,
                "scope": "window",
-               "description": "当前工作区最多保存的翻译缓存条目数。",
+               "description": "%configuration.maxCacheCount.description%",
                "order": 5
             },
             "floating-translation.credentialStorage": {
@@ -115,12 +116,12 @@
                   "secretStorage"
                ],
                "enumItemLabels": [
-                  "明文设置",
-                  "加密存储"
+                  "%configuration.credentialStorage.settings%",
+                  "%configuration.credentialStorage.secretStorage%"
                ],
                "default": "settings",
                "scope": "application",
-               "markdownDescription": "各翻译平台凭据的读写方式。选择加密存储后，请先选择翻译平台，再执行 `Floating Translation: Configure Credentials` 写入该平台凭据。",
+               "markdownDescription": "%configuration.credentialStorage.description%",
                "order": 4
             },
             "floating-translation.generalPlatformCredentials": {
@@ -137,7 +138,7 @@
                      "type": "integer",
                      "minimum": 1,
                      "default": 50,
-                     "markdownDescription": "每秒启动及同时进行的最大请求数。"
+                     "markdownDescription": "%configuration.generalPlatformCredentials.qps.description%"
                   },
                   "aliyunAccessKeyId": {
                      "type": "string"
@@ -154,7 +155,7 @@
                },
                "additionalProperties": false,
                "scope": "application",
-               "markdownDescription": "一般翻译开放平台的请求上限与凭据。QPS 始终生效；凭据仅在存储方式为明文设置时读取，`floating-translation.credentialStorage` 为 `secretStorage` 时凭据字段失效。",
+               "markdownDescription": "%configuration.generalPlatformCredentials.description%",
                "order": 6
             },
             "floating-translation.openAiCompatibleConfiguration": {
@@ -181,7 +182,7 @@
                },
                "additionalProperties": false,
                "scope": "application",
-               "markdownDescription": "OpenAI 兼容服务配置。请求地址必须是完整的 Chat Completions 地址，扩展不会自动拼接路径；模型标识符必须按目标服务的实际模型列表填写；自定义提示词不能覆盖扩展内置的输出与结构保护约束。API Key 仅在凭据存储方式为明文设置时读取。",
+               "markdownDescription": "%configuration.openAiCompatibleConfiguration.description%",
                "order": 6
             }
          }

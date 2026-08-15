@@ -35,7 +35,7 @@ suite("BaiduTranslation", () => {
       await requestStarted;
       service.terminate();
 
-      await assert.rejects(resultPromise, /百度翻译请求已终止/);
+      await assert.rejects(resultPromise, /The Baidu Translate request was terminated/);
       assert.deepEqual(startedTexts, ["First."]);
       assert.equal(requestSignal?.aborted, true);
    });

@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import type { TranslationMode } from "./@types/TranslationConfiguration";
 import type { TranslatableContent } from "./@types/TranslatableContent";
 import { ConfigTool, normalizeTranslationMode } from "./Utils/ConfigTool";
-import { output } from "./Utils/output";
+import { output, outputChannelName } from "./Utils/output";
 import { TranslatableContentAnalyzer } from "./Utils/TranslatableContentAnalyzer";
 import { AggregationTranslation, hasTranslatableContent } from "./AggregationTranslation";
 import { createTranslationCacheKey, TranslationCache } from "./Utils/TranslationCache";
@@ -84,11 +84,20 @@ export function activate(context: vscode.ExtensionContext): void {
    const translationCache = new TranslationCache(
       context.workspaceState,
       () => configTool.getMaxCacheCount(),
-      (error) => output.appendLine(`缓存持久化失败：${formatError(error)}`),
+      (error) =>
+         output.appendLine(
+            vscode.l10n.t("Cache persistence failed: {error}", {
+               error: formatError(error),
+            }),
+         ),
    );
 
    void translationCache.trim().catch((error) => {
-      output.appendLine(`整理翻译缓存失败：${formatError(error)}`);
+      output.appendLine(
+         vscode.l10n.t("Failed to trim translation cache: {error}", {
+            error: formatError(error),
+         }),
+      );
    });
 
    // Provider 不替换自然 Hover，只负责观察原始 Provider 的结果并在翻译阶段追加译文。
@@ -192,7 +201,11 @@ export function activate(context: vscode.ExtensionContext): void {
             } catch (error) {
                capturedHover = undefined;
 
-               output.appendLine(`读取 Hover 失败：${formatError(error)}`);
+               output.appendLine(
+                  vscode.l10n.t("Failed to read Hover: {error}", {
+                     error: formatError(error),
+                  }),
+               );
 
                return undefined;
             } finally {
@@ -224,12 +237,16 @@ export function activate(context: vscode.ExtensionContext): void {
             );
          }
 
-         void vscode.window.showInformationMessage("未检测到需要翻译的文本");
+         void vscode.window.showInformationMessage(vscode.l10n.t("No text requiring translation was detected"));
 
          try {
             await reopenHover();
          } catch (error) {
-            output.appendLine(`重新打开 Hover 失败：${formatError(error)}`);
+            output.appendLine(
+               vscode.l10n.t("Failed to reopen Hover: {error}", {
+                  error: formatError(error),
+               }),
+            );
          }
 
          return;
@@ -254,7 +271,11 @@ export function activate(context: vscode.ExtensionContext): void {
 
       // 主动触发表示强制刷新；同步清除内存条目，并按写入队列删除持久缓存。
       void translationCache.delete(cacheKey).catch((error) => {
-         output.appendLine(`删除翻译缓存失败：${formatError(error)}`);
+         output.appendLine(
+            vscode.l10n.t("Failed to delete translation cache entry: {error}", {
+               error: formatError(error),
+            }),
+         );
       });
 
       const requestId = ++nextRequestId;
@@ -299,7 +320,7 @@ export function activate(context: vscode.ExtensionContext): void {
          const progressPromise = vscode.window.withProgress(
             {
                location: vscode.ProgressLocation.Notification,
-               title: "正在翻译...",
+               title: vscode.l10n.t("Translating..."),
                cancellable: false,
             },
             async () => {
@@ -322,9 +343,17 @@ export function activate(context: vscode.ExtensionContext): void {
          if (outcome.kind === "error") {
             translationState = { kind: "idle" };
 
-            output.appendLine(`翻译失败：${formatError(outcome.error)}`);
+            output.appendLine(
+               vscode.l10n.t("Translation failed: {error}", {
+                  error: formatError(outcome.error),
+               }),
+            );
 
-            void vscode.window.showErrorMessage("翻译失败，详细信息请查看 FloatingTranslation 输出");
+            void vscode.window.showErrorMessage(
+               vscode.l10n.t("Translation failed. See the {outputChannel} output for details.", {
+                  outputChannel: outputChannelName,
+               }),
+            );
 
             return;
          }
@@ -343,7 +372,9 @@ export function activate(context: vscode.ExtensionContext): void {
          if (outcome.kind === "unchanged") {
             translationState = { kind: "idle" };
 
-            void vscode.window.showInformationMessage("译文与原文一致，未显示翻译结果");
+            void vscode.window.showInformationMessage(
+               vscode.l10n.t("The translation is identical to the source text, so no translated result was shown."),
+            );
 
             return;
          }
@@ -358,7 +389,11 @@ export function activate(context: vscode.ExtensionContext): void {
          };
 
          void translationCache.set(cacheKey, outcome.translatedText).catch((error) => {
-            output.appendLine(`写入翻译缓存失败：${formatError(error)}`);
+            output.appendLine(
+               vscode.l10n.t("Failed to write translation cache: {error}", {
+                  error: formatError(error),
+               }),
+            );
          });
       } catch (error) {
          const currentState = translationState;
@@ -367,9 +402,17 @@ export function activate(context: vscode.ExtensionContext): void {
             translationState = { kind: "idle" };
          }
 
-         output.appendLine(`翻译失败：${formatError(error)}`);
+         output.appendLine(
+            vscode.l10n.t("Translation failed: {error}", {
+               error: formatError(error),
+            }),
+         );
 
-         void vscode.window.showErrorMessage("翻译失败，详细信息请查看 FloatingTranslation 输出");
+         void vscode.window.showErrorMessage(
+            vscode.l10n.t("Translation failed. See the {outputChannel} output for details.", {
+               outputChannel: outputChannelName,
+            }),
+         );
       }
    });
 
@@ -379,8 +422,8 @@ export function activate(context: vscode.ExtensionContext): void {
 
       if (translationTool === "openaiCompatible") {
          const apiKey = await vscode.window.showInputBox({
-            title: "配置 OpenAI 兼容服务凭据",
-            prompt: "请输入 API Key",
+            title: vscode.l10n.t("Configure OpenAI-compatible service credentials"),
+            prompt: vscode.l10n.t("Enter the API key"),
             password: true,
             ignoreFocusOut: true,
          });
@@ -391,38 +434,53 @@ export function activate(context: vscode.ExtensionContext): void {
 
          await configTool.set("openAiCompatibleApiKey", apiKey);
 
-         const storageLabel = configTool.getSelect("credentialStorage") === "secretStorage" ? "加密存储" : "明文设置";
+         const storageLabel =
+            configTool.getSelect("credentialStorage") === "secretStorage"
+               ? vscode.l10n.t("encrypted storage")
+               : vscode.l10n.t("plain-text settings");
 
-         void vscode.window.showInformationMessage(`OpenAI 兼容服务凭据已写入${storageLabel}`);
+         void vscode.window.showInformationMessage(
+            vscode.l10n.t("OpenAI-compatible service credentials were saved to {storage}", {
+               storage: storageLabel,
+            }),
+         );
          return;
       }
 
       const credentialConfigurations = {
          aliyun: {
-            service: "阿里云翻译",
+            service: vscode.l10n.t("Alibaba Cloud Translation"),
             publicLabel: "AccessKey ID",
             secretLabel: "AccessKey Secret",
             publicName: "aliyunAccessKeyId",
             secretName: "aliyunAccessKeySecret",
          },
          baidu: {
-            service: "百度翻译",
+            service: vscode.l10n.t("Baidu Translate"),
             publicLabel: "APPID",
-            secretLabel: "密钥",
+            secretLabel: vscode.l10n.t("secret key"),
             publicName: "baiduAppId",
             secretName: "baiduAppKey",
          },
       } as const;
 
       if (translationTool !== "aliyun" && translationTool !== "baidu") {
-         void vscode.window.showErrorMessage(`不支持的翻译工具：${translationTool}`);
+         void vscode.window.showErrorMessage(
+            vscode.l10n.t("Unsupported translation service: {service}", {
+               service: translationTool,
+            }),
+         );
          return;
       }
 
       const credentialConfiguration = credentialConfigurations[translationTool];
       const publicCredential = await vscode.window.showInputBox({
-         title: `配置${credentialConfiguration.service}凭据`,
-         prompt: `请输入 ${credentialConfiguration.publicLabel}`,
+         title: vscode.l10n.t("Configure {service} credentials", {
+            service: credentialConfiguration.service,
+         }),
+         prompt: vscode.l10n.t("Enter {credential}", {
+            credential: credentialConfiguration.publicLabel,
+         }),
          password: true,
          ignoreFocusOut: true,
       });
@@ -432,8 +490,12 @@ export function activate(context: vscode.ExtensionContext): void {
       }
 
       const secretCredential = await vscode.window.showInputBox({
-         title: `配置${credentialConfiguration.service}凭据`,
-         prompt: `请输入 ${credentialConfiguration.secretLabel}`,
+         title: vscode.l10n.t("Configure {service} credentials", {
+            service: credentialConfiguration.service,
+         }),
+         prompt: vscode.l10n.t("Enter {credential}", {
+            credential: credentialConfiguration.secretLabel,
+         }),
          password: true,
          ignoreFocusOut: true,
       });
@@ -445,9 +507,17 @@ export function activate(context: vscode.ExtensionContext): void {
       await configTool.set(credentialConfiguration.publicName, publicCredential);
       await configTool.set(credentialConfiguration.secretName, secretCredential);
 
-      const storageLabel = configTool.getSelect("credentialStorage") === "secretStorage" ? "加密存储" : "明文设置";
+      const storageLabel =
+         configTool.getSelect("credentialStorage") === "secretStorage"
+            ? vscode.l10n.t("encrypted storage")
+            : vscode.l10n.t("plain-text settings");
 
-      void vscode.window.showInformationMessage(`${credentialConfiguration.service}凭据已写入${storageLabel}`);
+      void vscode.window.showInformationMessage(
+         vscode.l10n.t("{service} credentials were saved to {storage}", {
+            service: credentialConfiguration.service,
+            storage: storageLabel,
+         }),
+      );
    });
 
    // 清理命令仅操作扩展的加密存储，不修改用户维护的明文设置。
@@ -455,16 +525,26 @@ export function activate(context: vscode.ExtensionContext): void {
       const translationTool = configTool.getSelect("translationTool");
 
       if (translationTool !== "aliyun" && translationTool !== "baidu" && translationTool !== "openaiCompatible") {
-         void vscode.window.showErrorMessage(`不支持的翻译工具：${translationTool}`);
+         void vscode.window.showErrorMessage(
+            vscode.l10n.t("Unsupported translation service: {service}", {
+               service: translationTool,
+            }),
+         );
          return;
       }
 
       const service =
-         translationTool === "aliyun" ? "阿里云翻译" : translationTool === "baidu" ? "百度翻译" : "OpenAI 兼容服务";
-      const clearCurrent = `仅清除${service}`;
-      const clearAll = "清除全部平台";
+         translationTool === "aliyun"
+            ? vscode.l10n.t("Alibaba Cloud Translation")
+            : translationTool === "baidu"
+              ? vscode.l10n.t("Baidu Translate")
+              : vscode.l10n.t("OpenAI-compatible service");
+      const clearCurrent = vscode.l10n.t("Clear only {service}", { service });
+      const clearAll = vscode.l10n.t("Clear credentials for all services");
       const confirmation = await vscode.window.showWarningMessage(
-         "请选择要从加密存储中清除的翻译凭据。明文设置不会受到影响。",
+         vscode.l10n.t(
+            "Select the translation credentials to clear from encrypted storage. Plain-text settings will not be affected.",
+         ),
          { modal: true },
          clearCurrent,
          clearAll,
@@ -472,10 +552,14 @@ export function activate(context: vscode.ExtensionContext): void {
 
       if (confirmation === clearCurrent) {
          await configTool.clearCredentials(translationTool);
-         void vscode.window.showInformationMessage(`${service}的加密存储凭据已清除`);
+         void vscode.window.showInformationMessage(
+            vscode.l10n.t("Encrypted credentials for {service} were cleared", { service }),
+         );
       } else if (confirmation === clearAll) {
          await configTool.clearAllCredentials();
-         void vscode.window.showInformationMessage("全部翻译平台的加密存储凭据已清除");
+         void vscode.window.showInformationMessage(
+            vscode.l10n.t("Encrypted credentials for all translation services were cleared"),
+         );
       }
    });
 
@@ -485,11 +569,16 @@ export function activate(context: vscode.ExtensionContext): void {
       const persisted = await translationCache.clear();
 
       if (!persisted) {
-         void vscode.window.showErrorMessage("工作区翻译缓存已清空，但持久化失败，详细信息请查看 FloatingTranslation 输出");
+         void vscode.window.showErrorMessage(
+            vscode.l10n.t(
+               "The workspace translation cache was cleared, but persistence failed. See the {outputChannel} output for details.",
+               { outputChannel: outputChannelName },
+            ),
+         );
          return;
       }
 
-      void vscode.window.showInformationMessage("当前工作区的翻译缓存已清空");
+      void vscode.window.showInformationMessage(vscode.l10n.t("The translation cache for the current workspace was cleared"));
    });
 
    const configurationChangeSubscription = vscode.workspace.onDidChangeConfiguration((event) => {
@@ -499,7 +588,11 @@ export function activate(context: vscode.ExtensionContext): void {
 
       if (event.affectsConfiguration("floating-translation.maxCacheCount")) {
          void translationCache.trim().catch((error) => {
-            output.appendLine(`整理翻译缓存失败：${formatError(error)}`);
+            output.appendLine(
+               vscode.l10n.t("Failed to trim translation cache: {error}", {
+                  error: formatError(error),
+               }),
+            );
          });
       }
    });

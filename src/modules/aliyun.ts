@@ -1,5 +1,6 @@
 import AlimtClient, { TranslateGeneralRequest } from "@alicloud/alimt20181012";
 import { $OpenApiUtil } from "@alicloud/openapi-core";
+import * as vscode from "vscode";
 import type { TranslationProvider } from "../@types/TranslationProvider";
 import type { AliyunTranslationOptions } from "../@types/TranslationProviderOptions";
 import { getConcurrentRequestCount, mapWithConcurrency, normalizePositiveInteger } from "../Utils/ConcurrentRequestExecutor";
@@ -10,7 +11,7 @@ const defaultConcurrency = 50;
 
 /** 调用阿里云机器翻译通用版的服务适配器。 */
 export class AliyunTranslation implements TranslationProvider {
-   public readonly serviceName = "阿里云翻译";
+   public readonly serviceName = vscode.l10n.t("Alibaba Cloud Translation");
    /** 控制排队任务及适配器返回结果的终止信号。 */
    private readonly abortController = new AbortController();
    /** 归一化后的源语言代码。 */
@@ -40,13 +41,13 @@ export class AliyunTranslation implements TranslationProvider {
 
    /** 停止调度后续请求，并使当前批量调用停止等待 SDK 在途请求。 */
    public terminate(): void {
-      this.abortController.abort(new Error("阿里云翻译请求已终止"));
+      this.abortController.abort(new Error(vscode.l10n.t("The Alibaba Cloud Translation request was terminated")));
    }
 
    /** 使用有限速率和并发翻译多段非空文本，返回结果顺序与输入文本顺序一致。 */
    public async invoke(texts: readonly string[]): Promise<string[]> {
       if (!this.accessKeyId || !this.accessKeySecret) {
-         throw new Error("请先配置阿里云 AccessKey ID 和 AccessKey Secret");
+         throw new Error(vscode.l10n.t("Configure the Alibaba Cloud AccessKey ID and AccessKey Secret first"));
       }
 
       const client = new AlimtClient(
@@ -64,7 +65,7 @@ export class AliyunTranslation implements TranslationProvider {
             const sourceText = text.trim();
 
             if (!sourceText) {
-               throw new Error("阿里云翻译的待翻译文本不能为空");
+               throw new Error(vscode.l10n.t("Text submitted to Alibaba Cloud Translation cannot be empty"));
             }
 
             const request = new TranslateGeneralRequest({
@@ -79,19 +80,26 @@ export class AliyunTranslation implements TranslationProvider {
 
             // SDK 同时暴露 HTTP 状态和业务状态，两层都成功才接受译文。
             if (response.statusCode !== 200) {
-               throw new Error(`阿里云翻译请求失败，HTTP 状态码：${response.statusCode ?? "未知"}`);
+               throw new Error(
+                  vscode.l10n.t("Alibaba Cloud Translation request failed with HTTP status: {status}", {
+                     status: response.statusCode ?? vscode.l10n.t("unknown"),
+                  }),
+               );
             }
 
             if (responseBody?.code !== 200) {
                throw new Error(
-                  `阿里云翻译请求失败，错误码：${responseBody?.code ?? "未知"}，错误信息：${responseBody?.message ?? "未知"}`,
+                  vscode.l10n.t("Alibaba Cloud Translation request failed with code {code}: {message}", {
+                     code: responseBody?.code ?? vscode.l10n.t("unknown"),
+                     message: responseBody?.message ?? vscode.l10n.t("unknown"),
+                  }),
                );
             }
 
             const translatedText = responseBody.data?.translated;
 
             if (!translatedText) {
-               throw new Error("阿里云翻译响应中未包含译文");
+               throw new Error(vscode.l10n.t("The Alibaba Cloud Translation response did not contain a translation"));
             }
 
             return translatedText;

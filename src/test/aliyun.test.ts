@@ -13,6 +13,6 @@ suite("AliyunTranslation", () => {
 
       service.terminate();
 
-      await assert.rejects(service.invoke(["Text"]), /阿里云翻译请求已终止/);
+      await assert.rejects(service.invoke(["Text"]), /The Alibaba Cloud Translation request was terminated/);
    });
 });

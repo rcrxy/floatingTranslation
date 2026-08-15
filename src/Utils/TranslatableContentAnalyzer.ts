@@ -42,7 +42,9 @@ export function restoreTranslationPlaceholders(
    // 译文不得引入原文中不存在的占位符，否则无法判断其真实来源。
    for (const token of translatedTokens) {
       if (!expectedTokens.has(token)) {
-         throw new Error(`译文包含未知占位符：${token}`);
+         throw new Error(
+            vscode.l10n.t("The translation contains an unknown placeholder: {placeholder}", { placeholder: token }),
+         );
       }
    }
 
@@ -59,7 +61,12 @@ export function restoreTranslationPlaceholders(
       }
 
       if (occurrenceCount > 1) {
-         throw new Error(`译文占位符数量异常：${placeholder.token}，期望 1 个，实际 ${occurrenceCount} 个`);
+         throw new Error(
+            vscode.l10n.t("Unexpected placeholder count for {placeholder}: expected 1, received {count}", {
+               placeholder: placeholder.token,
+               count: occurrenceCount,
+            }),
+         );
       }
 
       restoredText = restoredText.replace(placeholder.token, placeholder.source);
@@ -69,9 +76,11 @@ export function restoreTranslationPlaceholders(
       // 丢失内容不能安全定位回原段落，因此以诊断代码块附加，确保信息仍可见。
       output.appendLine(
          [
-            `占位符未完整替换：${missingPlaceholders.map((placeholder) => placeholder.token).join("、")}`,
-            `原内容：\n${sourceText}`,
-            `翻译后的内容：\n${translatedText}`,
+            vscode.l10n.t("Placeholders were not fully restored: {placeholders}", {
+               placeholders: missingPlaceholders.map((placeholder) => placeholder.token).join(", "),
+            }),
+            vscode.l10n.t("Source content:\n{content}", { content: sourceText }),
+            vscode.l10n.t("Translated content:\n{content}", { content: translatedText }),
          ].join("\n"),
       );
       restoredText += `\n\n${createMissingPlaceholderCodeBlock(missingPlaceholders)}`;
@@ -83,7 +92,12 @@ export function restoreTranslationPlaceholders(
 /** 生成不会与报告内容中的反引号冲突的 Markdown 代码围栏。 */
 function createMissingPlaceholderCodeBlock(placeholders: readonly TranslationPlaceholder[]): string {
    const report = placeholders
-      .map((placeholder) => `未替换的占位符：${placeholder.token}\n原内容：${placeholder.source}`)
+      .map((placeholder) =>
+         vscode.l10n.t("Unrestored placeholder: {placeholder}\nSource content: {content}", {
+            placeholder: placeholder.token,
+            content: placeholder.source,
+         }),
+      )
       .join("\n\n");
    const longestBacktickSequence = Math.max(0, ...Array.from(report.matchAll(/`+/g), (match) => match[0].length));
    // 围栏比报告中最长的连续反引号多一个，避免内容提前闭合代码块。

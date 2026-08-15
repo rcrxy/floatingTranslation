@@ -47,7 +47,7 @@ export function AggregationTranslation(contents: readonly TranslatableContent[],
       const configuration = await configTool.getAll();
 
       if (terminated) {
-         throw new Error("翻译请求已终止");
+         throw new Error(vscode.l10n.t("The translation request was terminated"));
       }
 
       // 空源语言交给服务自动识别；空目标语言跟随 VS Code 当前显示语言。
@@ -102,7 +102,11 @@ export function AggregationTranslation(contents: readonly TranslatableContent[],
             );
          }
          default:
-            throw new Error(`不支持的翻译工具：${configuration.translationTool}`);
+            throw new Error(
+               vscode.l10n.t("Unsupported translation service: {service}", {
+                  service: configuration.translationTool,
+               }),
+            );
       }
    }
 }
@@ -129,13 +133,17 @@ function outputTranslationInvocation(
    model?: string,
 ): void {
    const characterCount = sourceTexts.reduce((count, sourceText) => count + sourceText.length, 0);
-   const fields = [`翻译服务：${service}`, `翻译字数：${characterCount}`, `并发数量：${concurrentRequestCount}`];
+   const fields = [
+      vscode.l10n.t("Translation service: {service}", { service }),
+      vscode.l10n.t("Characters to translate: {count}", { count: characterCount }),
+      vscode.l10n.t("Concurrent requests: {count}", { count: concurrentRequestCount }),
+   ];
 
    if (endpoint !== undefined && model !== undefined) {
-      fields.push(`Endpoint：${endpoint}`, `模型名称：${model}`);
+      fields.push(vscode.l10n.t("Endpoint: {endpoint}", { endpoint }), vscode.l10n.t("Model: {model}", { model }));
    }
 
-   output.appendLine(fields.join("，"));
+   output.appendLine(fields.join(vscode.l10n.t(", ")));
 }
 
 /** 按配置的内容尺度翻译片段，并按原顺序重建最终 Markdown。 */
@@ -284,13 +292,13 @@ async function translateWithLocalPlaceholders(
 /** 调用平台并统一校验批量响应数量。 */
 async function invokeTranslation(sourceTexts: readonly string[], translate: TranslationInvoker): Promise<string[]> {
    if (sourceTexts.length === 0) {
-      throw new Error("没有可翻译的内容");
+   throw new Error(vscode.l10n.t("There is no translatable content"));
    }
 
    const translatedTexts = await translate(sourceTexts);
 
    if (translatedTexts.length !== sourceTexts.length) {
-      throw new Error("翻译服务返回的译文数量与原文数量不一致");
+      throw new Error(vscode.l10n.t("The number of translations returned by the service does not match the source text count"));
    }
 
    return translatedTexts;

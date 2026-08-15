@@ -33,7 +33,7 @@ suite("AggregationTranslation", () => {
          customPrompt: "",
       });
 
-      await assert.rejects(task.promise, /翻译请求已终止/);
+      await assert.rejects(task.promise, /The translation request was terminated/);
    });
 
    test("本地占位符保护不发送 token 并按原顺序恢复", async () => {

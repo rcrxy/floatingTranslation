@@ -81,7 +81,7 @@ suite("OpenAiCompatibleTranslation", () => {
          fetchImplementation,
       );
 
-      await assert.rejects(service.invoke(["Text"]), /响应中未包含有效译文/);
+      await assert.rejects(service.invoke(["Text"]), /response did not contain a valid translation/);
    });
 
    test("terminate 中止在途请求并停止后续调度", async () => {
@@ -122,7 +122,7 @@ suite("OpenAiCompatibleTranslation", () => {
       await requestStarted;
       service.terminate();
 
-      await assert.rejects(resultPromise, /OpenAI 兼容服务请求已终止/);
+      await assert.rejects(resultPromise, /The OpenAI-compatible service request was terminated/);
       assert.deepEqual(startedTexts, ["First."]);
       assert.equal(requestSignal?.aborted, true);
    });
