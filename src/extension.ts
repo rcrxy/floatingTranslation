@@ -308,6 +308,27 @@ export function activate(context: vscode.ExtensionContext): void {
    // 输入框只负责收集凭据，实际存储位置由 ConfigTool 根据用户设置决定。
    const configureCredentialsCommand = vscode.commands.registerCommand("floatingTranslation.configureCredentials", async () => {
       const translationTool = configTool.getSelect("translationTool");
+
+      if (translationTool === "openaiCompatible") {
+         const apiKey = await vscode.window.showInputBox({
+            title: "配置 OpenAI 兼容服务凭据",
+            prompt: "请输入 API Key",
+            password: true,
+            ignoreFocusOut: true,
+         });
+
+         if (apiKey === undefined) {
+            return;
+         }
+
+         await configTool.set("openAiCompatibleApiKey", apiKey);
+
+         const storageLabel = configTool.getSelect("credentialStorage") === "secretStorage" ? "加密存储" : "明文设置";
+
+         void vscode.window.showInformationMessage(`OpenAI 兼容服务凭据已写入${storageLabel}`);
+         return;
+      }
+
       const credentialConfigurations = {
          aliyun: {
             service: "阿里云翻译",
@@ -364,12 +385,13 @@ export function activate(context: vscode.ExtensionContext): void {
    const clearCredentialsCommand = vscode.commands.registerCommand("floatingTranslation.clearCredentials", async () => {
       const translationTool = configTool.getSelect("translationTool");
 
-      if (translationTool !== "aliyun" && translationTool !== "baidu") {
+      if (translationTool !== "aliyun" && translationTool !== "baidu" && translationTool !== "openaiCompatible") {
          void vscode.window.showErrorMessage(`不支持的翻译工具：${translationTool}`);
          return;
       }
 
-      const service = translationTool === "aliyun" ? "阿里云翻译" : "百度翻译";
+      const service =
+         translationTool === "aliyun" ? "阿里云翻译" : translationTool === "baidu" ? "百度翻译" : "OpenAI 兼容服务";
       const clearCurrent = `仅清除${service}`;
       const clearAll = "清除全部平台";
       const confirmation = await vscode.window.showWarningMessage(

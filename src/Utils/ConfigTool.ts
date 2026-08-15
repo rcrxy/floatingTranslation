@@ -22,6 +22,12 @@ export interface FloatingTranslationConfiguration {
    readonly baiduAppId: string;
    /** 百度翻译开放平台密钥。 */
    readonly baiduAppKey: string;
+   /** OpenAI 兼容服务的完整 Chat Completions 请求地址。 */
+   readonly openAiCompatibleEndpoint: string;
+   /** OpenAI 兼容服务的 API Key。 */
+   readonly openAiCompatibleApiKey: string;
+   /** OpenAI 兼容服务的模型标识符。 */
+   readonly openAiCompatibleModel: string;
    /** 翻译请求使用的源语言代码，通常允许使用 auto。 */
    readonly sourceLanguage: string;
    /** 翻译请求使用的目标语言代码，空值表示跟随 VS Code 显示语言。 */
@@ -31,16 +37,23 @@ export interface FloatingTranslationConfiguration {
 }
 
 type ConfigurationName = keyof FloatingTranslationConfiguration;
-type CredentialName = "aliyunAccessKeyId" | "aliyunAccessKeySecret" | "baiduAppId" | "baiduAppKey";
+type CredentialName = "aliyunAccessKeyId" | "aliyunAccessKeySecret" | "baiduAppId" | "baiduAppKey" | "openAiCompatibleApiKey";
 
 const configurationSection = "floating-translation";
 // 只有凭据字段需要根据 credentialStorage 在两种存储之间路由。
-const credentialNames = new Set<ConfigurationName>(["aliyunAccessKeyId", "aliyunAccessKeySecret", "baiduAppId", "baiduAppKey"]);
+const credentialNames = new Set<ConfigurationName>([
+   "aliyunAccessKeyId",
+   "aliyunAccessKeySecret",
+   "baiduAppId",
+   "baiduAppKey",
+   "openAiCompatibleApiKey",
+]);
 const credentialSecretKeys: Readonly<Record<CredentialName, string>> = {
    aliyunAccessKeyId: "credentials.aliyun.accessKeyId",
    aliyunAccessKeySecret: "credentials.aliyun.accessKeySecret",
    baiduAppId: "credentials.baidu.appId",
    baiduAppKey: "credentials.baidu.appKey",
+   openAiCompatibleApiKey: "credentials.openaiCompatible.apiKey",
 };
 // 代码侧默认值与 package.json 保持一致，确保配置清单异常时仍有确定行为。
 const defaultValues: FloatingTranslationConfiguration = {
@@ -51,6 +64,9 @@ const defaultValues: FloatingTranslationConfiguration = {
    aliyunAccessKeySecret: "",
    baiduAppId: "",
    baiduAppKey: "",
+   openAiCompatibleEndpoint: "",
+   openAiCompatibleApiKey: "",
+   openAiCompatibleModel: "",
    sourceLanguage: "auto",
    targetLanguage: "",
    customPrompt: "",
@@ -74,6 +90,9 @@ export class ConfigTool {
          aliyunAccessKeySecret,
          baiduAppId,
          baiduAppKey,
+         openAiCompatibleEndpoint,
+         openAiCompatibleApiKey,
+         openAiCompatibleModel,
          sourceLanguage,
          targetLanguage,
          customPrompt,
@@ -85,6 +104,9 @@ export class ConfigTool {
          "aliyunAccessKeySecret",
          "baiduAppId",
          "baiduAppKey",
+         "openAiCompatibleEndpoint",
+         "openAiCompatibleApiKey",
+         "openAiCompatibleModel",
          "sourceLanguage",
          "targetLanguage",
          "customPrompt",
@@ -98,6 +120,9 @@ export class ConfigTool {
          aliyunAccessKeySecret,
          baiduAppId,
          baiduAppKey,
+         openAiCompatibleEndpoint,
+         openAiCompatibleApiKey,
+         openAiCompatibleModel,
          sourceLanguage,
          targetLanguage,
          customPrompt,
@@ -144,9 +169,13 @@ export class ConfigTool {
    }
 
    /** 同时清除指定平台在普通设置和加密存储中的凭据。 */
-   public async clearCredentials(translationTool: "aliyun" | "baidu"): Promise<void> {
+   public async clearCredentials(translationTool: "aliyun" | "baidu" | "openaiCompatible"): Promise<void> {
       const names: readonly CredentialName[] =
-         translationTool === "aliyun" ? ["aliyunAccessKeyId", "aliyunAccessKeySecret"] : ["baiduAppId", "baiduAppKey"];
+         translationTool === "aliyun"
+            ? ["aliyunAccessKeyId", "aliyunAccessKeySecret"]
+            : translationTool === "baidu"
+              ? ["baiduAppId", "baiduAppKey"]
+              : ["openAiCompatibleApiKey"];
 
       await Promise.all(
          names.flatMap((name) => [this.updateSetting(name, ""), this.secretStorage.delete(credentialSecretKeys[name])]),

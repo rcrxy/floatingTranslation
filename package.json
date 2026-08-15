@@ -44,20 +44,36 @@
       "configuration": {
          "title": "Floating Translation",
          "properties": {
+             "floating-translation.sourceLanguage": {
+               "type": "string",
+               "default": "auto",
+               "scope": "application",
+               "description": "待翻译文本的原语言代码。",
+               "order": 0
+            },
+            "floating-translation.targetLanguage": {
+               "type": "string",
+               "default": "",
+               "scope": "application",
+               "markdownDescription": "译文的目标语言代码。留空时使用 VS Code 当前的显示语言。",
+               "order": 1
+            },
             "floating-translation.translationTool": {
                "type": "string",
                "enum": [
                   "aliyun",
-                  "baidu"
+                  "baidu",
+                  "openaiCompatible"
                ],
                "enumItemLabels": [
                   "阿里云",
-                  "百度翻译"
+                  "百度翻译",
+                  "OpenAI 兼容服务"
                ],
                "default": "aliyun",
                "scope": "application",
                "description": "当前使用的翻译平台。",
-               "order": 0
+               "order": 2
             },
             "floating-translation.translationMode": {
                "type": "string",
@@ -82,7 +98,7 @@
                "default": "codeBlocks",
                "scope": "application",
                "description": "控制发送给翻译服务的内容范围和受保护内容的处理方式。",
-               "order": 1
+               "order": 3
             },
             "floating-translation.credentialStorage": {
                "type": "string",
@@ -97,28 +113,28 @@
                "default": "settings",
                "scope": "application",
                "markdownDescription": "各翻译平台凭据的读写方式。选择加密存储后，请先选择翻译平台，再执行 `Floating Translation: Configure Credentials` 写入该平台凭据。",
-               "order": 2
+               "order": 4
             },
             "floating-translation.aliyunAccessKeyId": {
                "type": "string",
                "default": "",
                "scope": "application",
                "markdownDescription": "阿里云 AccessKey ID。仅在凭据存储方式为明文设置时读取。该值会以普通 VS Code 设置存储，请勿提交到版本控制。",
-               "order": 3
+               "order": 6
             },
             "floating-translation.aliyunAccessKeySecret": {
                "type": "string",
                "default": "",
                "scope": "application",
                "markdownDescription": "阿里云 AccessKey Secret。仅在凭据存储方式为明文设置时读取。该值会以普通 VS Code 设置存储，请勿提交到版本控制。",
-               "order": 4
+               "order": 6
             },
             "floating-translation.baiduAppId": {
                "type": "string",
                "default": "",
                "scope": "application",
                "markdownDescription": "百度翻译开放平台 APPID。仅在凭据存储方式为明文设置时读取。该值会以普通 VS Code 设置存储，请勿提交到版本控制。",
-               "order": 5
+               "order": 6
             },
             "floating-translation.baiduAppKey": {
                "type": "string",
@@ -127,25 +143,32 @@
                "markdownDescription": "百度翻译开放平台密钥。仅在凭据存储方式为明文设置时读取。该值会以普通 VS Code 设置存储，请勿提交到版本控制。",
                "order": 6
             },
-            "floating-translation.sourceLanguage": {
-               "type": "string",
-               "default": "auto",
-               "scope": "application",
-               "description": "待翻译文本的原语言代码。",
-               "order": 7
-            },
-            "floating-translation.targetLanguage": {
+            "floating-translation.openAiCompatibleEndpoint": {
                "type": "string",
                "default": "",
                "scope": "application",
-               "markdownDescription": "译文的目标语言代码。留空时使用 VS Code 当前的显示语言。",
-               "order": 8
+               "markdownDescription": "OpenAI 兼容服务的完整 Chat Completions 请求地址。扩展不会自动拼接路径；Hover 文本会发送到该地址。仅支持 HTTP 或 HTTPS。",
+               "order": 6
+            },
+            "floating-translation.openAiCompatibleApiKey": {
+               "type": "string",
+               "default": "",
+               "scope": "application",
+               "markdownDescription": "OpenAI 兼容服务的 API Key。仅在凭据存储方式为明文设置时读取。该值会以普通 VS Code 设置存储，请勿提交到版本控制。",
+               "order": 6
+            },
+            "floating-translation.openAiCompatibleModel": {
+               "type": "string",
+               "default": "",
+               "scope": "application",
+               "markdownDescription": "OpenAI 兼容服务提供的模型标识符。必须按目标服务的实际模型列表填写。",
+               "order": 6
             },
             "floating-translation.customPrompt": {
                "type": "string",
                "default": "",
                "scope": "application",
-               "description": "未来接入 AI 翻译平台时使用的自定义提示词。",
+               "description": "OpenAI 兼容翻译使用的附加偏好，不能覆盖扩展内置的输出与结构保护约束。",
                "order": 999
             }
          }

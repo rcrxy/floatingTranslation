@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { AliyunTranslation } from "./modules/aliyun";
 import {BaiduTranslation} from "./modules/baidu";
+import {OpenAiCompatibleTranslation} from "./modules/openaiCompatible";
 import {ConfigTool, type TranslationMode} from "./Utils/ConfigTool";
 import { output } from "./Utils/output";
 import { restoreTranslationPlaceholders, type TranslatableContent } from "./Utils/TranslatableContentAnalyzer";
@@ -53,6 +54,22 @@ export async function AggregationTranslation(
             appKey: configuration.baiduAppKey,
          });
          return translateContents(contents, (sourceTexts) => baidu.invoke(sourceTexts), configuration.translationMode);
+      }
+      case "openaiCompatible": {
+         const openAiCompatible = new OpenAiCompatibleTranslation({
+            endpoint: configuration.openAiCompatibleEndpoint,
+            apiKey: configuration.openAiCompatibleApiKey,
+            model: configuration.openAiCompatibleModel,
+            sourceLanguage,
+            targetLanguage,
+            translationMode: configuration.translationMode,
+            customPrompt: configuration.customPrompt,
+         });
+         return translateContents(
+            contents,
+            (sourceTexts) => openAiCompatible.invoke(sourceTexts),
+            configuration.translationMode,
+         );
       }
       default:
          throw new Error(`不支持的翻译工具：${configuration.translationTool}`);

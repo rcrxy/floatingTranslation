@@ -15,6 +15,7 @@
 		"alimt",
 		"aliyun",
 		"aliyuncs",
-		"floatingtranslation"
+		"floatingtranslation",
+		"ollama"
 	]
 }
