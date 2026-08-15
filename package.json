@@ -2,7 +2,7 @@
    "name": "floating-translation",
    "displayName": "Floating Translation",
    "description": "Translate VS Code hover documentation through configurable translation services.",
-   "version": "0.0.3",
+   "version": "0.0.4",
    "publisher": "zeco",
    "icon": "resources/ft_logo.png",
    "license": "SEE LICENSE IN LICENSE",
@@ -118,12 +118,19 @@
             "floating-translation.generalPlatformCredentials": {
                "type": "object",
                "default": {
+                  "QPS": 50,
                   "aliyunAccessKeyId": "",
                   "aliyunAccessKeySecret": "",
                   "baiduAppId": "",
                   "baiduAppKey": ""
                },
                "properties": {
+                  "QPS": {
+                     "type": "integer",
+                     "minimum": 1,
+                     "default": 50,
+                     "markdownDescription": "每秒启动及同时进行的最大请求数。"
+                  },
                   "aliyunAccessKeyId": {
                      "type": "string"
                   },
@@ -139,7 +146,7 @@
                },
                "additionalProperties": false,
                "scope": "application",
-               "markdownDescription": "一般翻译开放平台的凭据。仅在凭据存储方式为明文设置时读取。`floating-translation.credentialStorage` 为 `secretStorage` 时，内容将失效。",
+               "markdownDescription": "一般翻译开放平台的请求上限与凭据。QPS 始终生效；凭据仅在存储方式为明文设置时读取，`floating-translation.credentialStorage` 为 `secretStorage` 时凭据字段失效。",
                "order": 6
             },
             "floating-translation.openAiCompatibleConfiguration": {

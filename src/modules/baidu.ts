@@ -1,8 +1,10 @@
 import { createHash, randomBytes } from "node:crypto";
+import { getConcurrentRequestCount, mapWithConcurrency, normalizePositiveInteger } from "../Utils/ConcurrentRequestExecutor";
 
 /** 百度通用文本翻译 API 固定地址。 */
 const endpoint = "https://fanyi-api.baidu.com/api/trans/vip/translate";
 const requestTimeoutMilliseconds = 15_000;
+const defaultConcurrency = 50;
 
 /** 创建百度翻译适配器所需的完整、与 VS Code 无关的配置。 */
 export interface BaiduTranslationOptions {
@@ -14,6 +16,8 @@ export interface BaiduTranslationOptions {
    readonly appId: string;
    /** 百度翻译开放平台密钥。 */
    readonly appKey: string;
+   /** 每秒启动及同时进行的最大请求数。 */
+   readonly concurrency?: number;
 }
 
 interface BaiduTranslationResult {
@@ -37,22 +41,33 @@ export class BaiduTranslation {
    private readonly appId: string;
    /** 去除首尾空白后的密钥。 */
    private readonly appKey: string;
+   /** 每秒启动及同时进行的最大请求数。 */
+   private readonly concurrency: number;
 
    /** 接收上层解析完成的配置，不在适配器内部读取编辑器设置。 */
-   public constructor(options: BaiduTranslationOptions) {
+   public constructor(
+      options: BaiduTranslationOptions,
+      private readonly fetchImplementation: typeof fetch = fetch,
+   ) {
       this.sourceLanguage = this.toLanguageCode(options.sourceLanguage);
       this.targetLanguage = this.toLanguageCode(options.targetLanguage);
       this.appId = options.appId.trim();
       this.appKey = options.appKey.trim();
+      this.concurrency = normalizePositiveInteger(options.concurrency, defaultConcurrency);
    }
 
-   /** 并发翻译多段非空文本，返回结果顺序与输入文本顺序一致。 */
+   /** 根据本次文本片段数返回实际会启动的并发请求数。 */
+   public getConcurrentRequestCount(textCount: number): number {
+      return getConcurrentRequestCount(textCount, this.concurrency);
+   }
+
+   /** 使用有限速率和并发翻译多段非空文本，返回结果顺序与输入文本顺序一致。 */
    public async invoke(texts: readonly string[]): Promise<string[]> {
       if (!this.appId || !this.appKey) {
          throw new Error("请先配置百度翻译 APPID 和密钥");
       }
 
-      return Promise.all(texts.map((text) => this.translate(text)));
+      return mapWithConcurrency(texts, this.concurrency, (text) => this.translate(text));
    }
 
    /** 为单段文本生成独立签名并发送表单请求。 */
@@ -77,7 +92,7 @@ export class BaiduTranslation {
       let response: Response;
 
       try {
-         response = await fetch(endpoint, {
+         response = await this.fetchImplementation(endpoint, {
             method: "POST",
             headers: {
                "Content-Type": "application/x-www-form-urlencoded",

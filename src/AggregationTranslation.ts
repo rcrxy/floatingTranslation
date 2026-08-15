@@ -43,11 +43,12 @@ export async function AggregationTranslation(
             targetLanguage,
             accessKeyId: configuration.aliyunAccessKeyId,
             accessKeySecret: configuration.aliyunAccessKeySecret,
+            concurrency: configuration.QPS,
          });
          return translateContents(
             contents,
             (sourceTexts) => {
-               outputTranslationInvocation("阿里云翻译", sourceTexts, sourceTexts.length);
+               outputTranslationInvocation("阿里云翻译", sourceTexts, aliyun.getConcurrentRequestCount(sourceTexts.length));
                return aliyun.invoke(sourceTexts);
             },
             configuration.translationMode,
@@ -59,11 +60,12 @@ export async function AggregationTranslation(
             targetLanguage,
             appId: configuration.baiduAppId,
             appKey: configuration.baiduAppKey,
+            concurrency: configuration.QPS,
          });
          return translateContents(
             contents,
             (sourceTexts) => {
-               outputTranslationInvocation("百度翻译", sourceTexts, sourceTexts.length);
+               outputTranslationInvocation("百度翻译", sourceTexts, baidu.getConcurrentRequestCount(sourceTexts.length));
                return baidu.invoke(sourceTexts);
             },
             configuration.translationMode,

@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { normalizePositiveInteger } from "./ConcurrentRequestExecutor";
 
 /** 凭据可存放在普通用户设置或 VS Code 提供的加密存储中。 */
 export type CredentialStorage = "settings" | "secretStorage";
@@ -22,6 +23,8 @@ export interface FloatingTranslationConfiguration {
    readonly baiduAppId: string;
    /** 百度翻译开放平台密钥。 */
    readonly baiduAppKey: string;
+   /** 阿里云和百度翻译每秒启动及同时进行的最大请求数。 */
+   readonly QPS: number;
    /** OpenAI 兼容服务的完整 Chat Completions 请求地址。 */
    readonly openAiCompatibleEndpoint: string;
    /** OpenAI 兼容服务的 API Key。 */
@@ -36,10 +39,12 @@ export interface FloatingTranslationConfiguration {
    readonly customPrompt: string;
 }
 
-type ConfigurationName = keyof FloatingTranslationConfiguration;
+type ConfigurationName = Exclude<keyof FloatingTranslationConfiguration, "QPS">;
 type CredentialName = "aliyunAccessKeyId" | "aliyunAccessKeySecret" | "baiduAppId" | "baiduAppKey" | "openAiCompatibleApiKey";
 type GeneralPlatformCredentialName = Exclude<CredentialName, "openAiCompatibleApiKey">;
-type GeneralPlatformCredentials = Readonly<Record<GeneralPlatformCredentialName, string>>;
+interface GeneralPlatformCredentials extends Readonly<Record<GeneralPlatformCredentialName, string>> {
+   readonly QPS: number;
+}
 type OpenAiCompatibleConfigurationName =
    "openAiCompatibleEndpoint" | "openAiCompatibleApiKey" | "openAiCompatibleModel" | "customPrompt";
 type OpenAiCompatibleConfiguration = Readonly<Record<OpenAiCompatibleConfigurationName, string>>;
@@ -75,6 +80,7 @@ const openAiCompatibleConfigurationNames = new Set<ConfigurationName>([
    "customPrompt",
 ]);
 const defaultGeneralPlatformCredentials: GeneralPlatformCredentials = {
+   QPS: 50,
    aliyunAccessKeyId: "",
    aliyunAccessKeySecret: "",
    baiduAppId: "",
@@ -95,6 +101,7 @@ const defaultValues: FloatingTranslationConfiguration = {
    aliyunAccessKeySecret: "",
    baiduAppId: "",
    baiduAppKey: "",
+   QPS: 50,
    openAiCompatibleEndpoint: "",
    openAiCompatibleApiKey: "",
    openAiCompatibleModel: "",
@@ -113,6 +120,7 @@ export class ConfigTool {
 
    /** 读取一次翻译所需的全部配置，返回同一时刻可消费的配置快照。 */
    public async getAll(): Promise<FloatingTranslationConfiguration> {
+      const QPS = this.getGeneralPlatformCredentials().QPS;
       const [
          translationTool,
          translationMode,
@@ -151,6 +159,7 @@ export class ConfigTool {
          aliyunAccessKeySecret,
          baiduAppId,
          baiduAppKey,
+         QPS,
          openAiCompatibleEndpoint,
          openAiCompatibleApiKey,
          openAiCompatibleModel,
@@ -234,9 +243,10 @@ export class ConfigTool {
    private getGeneralPlatformCredentials(): GeneralPlatformCredentials {
       const configuredCredentials = vscode.workspace
          .getConfiguration(configurationSection)
-         .get<Partial<Record<GeneralPlatformCredentialName, unknown>>>(generalPlatformCredentialsSetting, {});
+         .get<Partial<Record<keyof GeneralPlatformCredentials, unknown>>>(generalPlatformCredentialsSetting, {});
 
       return {
+         QPS: normalizePositiveInteger(configuredCredentials.QPS, defaultGeneralPlatformCredentials.QPS),
          aliyunAccessKeyId: getCredentialValue("aliyunAccessKeyId"),
          aliyunAccessKeySecret: getCredentialValue("aliyunAccessKeySecret"),
          baiduAppId: getCredentialValue("baiduAppId"),
