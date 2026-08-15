@@ -1,18 +1,18 @@
 import * as assert from "node:assert/strict";
-import {hasTranslatableContent, translateContents} from "../AggregationTranslation";
-import type {TranslatableContent, TranslationPlaceholder} from "../Utils/TranslatableContentAnalyzer";
+import { hasTranslatableContent, translateContents } from "../AggregationTranslation";
+import type { TranslatableContent, TranslationPlaceholder } from "../Utils/TranslatableContentAnalyzer";
 
 suite("AggregationTranslation", () => {
    test("本地占位符保护不发送 token 并按原顺序恢复", async () => {
       const placeholders = new Map<string, TranslationPlaceholder>([
-         ["param", {token: "{{0761565856:0001}}", source: "*@param*"}],
-         ["command", {token: "{{0761565856:0000}}", source: "`command`"}],
-         ["callbackParam", {token: "{{0761565856:0003}}", source: "*@param*"}],
-         ["callback", {token: "{{0761565856:0002}}", source: "`callback`"}],
-         ["thisArgParam", {token: "{{0761565856:0006}}", source: "*@param*"}],
-         ["thisArg", {token: "{{0761565856:0004}}", source: "`thisArg`"}],
-         ["this", {token: "{{0761565856:0005}}", source: "`this`"}],
-         ["returns", {token: "{{0761565856:0007}}", source: "*@returns*"}],
+         ["param", { token: "{{0761565856:0001}}", source: "*@param*" }],
+         ["command", { token: "{{0761565856:0000}}", source: "`command`" }],
+         ["callbackParam", { token: "{{0761565856:0003}}", source: "*@param*" }],
+         ["callback", { token: "{{0761565856:0002}}", source: "`callback`" }],
+         ["thisArgParam", { token: "{{0761565856:0006}}", source: "*@param*" }],
+         ["thisArg", { token: "{{0761565856:0004}}", source: "`thisArg`" }],
+         ["this", { token: "{{0761565856:0005}}", source: "`this`" }],
+         ["returns", { token: "{{0761565856:0007}}", source: "*@returns*" }],
       ]);
       const values = [
          createValue(
@@ -78,7 +78,7 @@ suite("AggregationTranslation", () => {
       const contents: readonly TranslatableContent[] = [
          {
             sourceText: "The `command` identifier.",
-            value: [createValue(`The ${token} identifier.`, {token, source: "`command`"})],
+            value: [createValue(`The ${token} identifier.`, { token, source: "`command`" })],
          },
       ];
       let requestedTexts: readonly string[] = [];
@@ -142,7 +142,7 @@ suite("AggregationTranslation", () => {
       assert.deepEqual(requestedTexts, ["Before.", "After."]);
       assert.equal(translatedText, "之前。\n\n```ts\nconst value = 1;\n```\n\n之后。");
       assert.equal(hasTranslatableContent(contents, "codeBlocks"), true);
-      assert.equal(hasTranslatableContent([{sourceText: "```ts\nconst value = 1;\n```", value: []}], "codeBlocks"), false);
+      assert.equal(hasTranslatableContent([{ sourceText: "```ts\nconst value = 1;\n```", value: [] }], "codeBlocks"), false);
    });
 
    test("没有占位符时保持整段批量翻译", async () => {

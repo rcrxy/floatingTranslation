@@ -1,8 +1,8 @@
 import * as vscode from "vscode";
-import {ConfigTool, normalizeTranslationMode, type TranslationMode} from "./Utils/ConfigTool";
-import {output} from "./Utils/output";
-import {TranslatableContentAnalyzer, type TranslatableContent} from "./Utils/TranslatableContentAnalyzer";
-import {AggregationTranslation, hasTranslatableContent} from "./AggregationTranslation";
+import { ConfigTool, normalizeTranslationMode, type TranslationMode } from "./Utils/ConfigTool";
+import { output } from "./Utils/output";
+import { TranslatableContentAnalyzer, type TranslatableContent } from "./Utils/TranslatableContentAnalyzer";
+import { AggregationTranslation, hasTranslatableContent } from "./AggregationTranslation";
 
 // executeHoverProvider 会回调本扩展的 Provider，用位置键阻断同一次递归调用。
 const running = new Set<string>();
@@ -63,7 +63,7 @@ type TranslationState =
 
 // 状态保存在扩展宿主进程内，仅覆盖当前 VS Code 窗口的最近一次 Hover。
 let capturedHover: CapturedHover | undefined;
-let translationState: TranslationState = {kind: "idle"};
+let translationState: TranslationState = { kind: "idle" };
 let nextRequestId = 0;
 
 /** 注册 Hover Provider、翻译命令和凭据管理命令。 */
@@ -71,7 +71,7 @@ export function activate(context: vscode.ExtensionContext): void {
    const configTool = new ConfigTool(context.secrets);
    // Provider 不替换自然 Hover，只负责观察原始 Provider 的结果并在翻译阶段追加译文。
    const provider = vscode.languages.registerHoverProvider(
-      {scheme: "*"},
+      { scheme: "*" },
       {
          async provideHover(document, position, token): Promise<vscode.Hover | undefined> {
             const key = createHoverKey(document, position);
@@ -100,7 +100,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
             if (state.kind !== "idle" && state.key !== key) {
                // 用户移动到其他位置后，不再向新 Hover 注入旧译文。
-               translationState = {kind: "idle"};
+               translationState = { kind: "idle" };
             }
 
             running.add(key);
@@ -152,7 +152,7 @@ export function activate(context: vscode.ExtensionContext): void {
       if (!editor) return;
 
       if (!captured || !isCapturedHoverValid(editor, captured, translationMode)) {
-         translationState = {kind: "idle"};
+         translationState = { kind: "idle" };
 
          if (isCapturedHoverLocationValid(editor, captured)) {
             // 内容不可翻译时仍回到捕获位置，便于用户看到原始 Hover。
@@ -197,7 +197,7 @@ export function activate(context: vscode.ExtensionContext): void {
       >(
          (translatedText) =>
             translatedText === getOriginalSourceText(captured.contents)
-               ? {kind: "unchanged"}
+               ? { kind: "unchanged" }
                : {
                     kind: "success",
                     translatedText,
@@ -252,7 +252,7 @@ export function activate(context: vscode.ExtensionContext): void {
          }
 
          if (outcome.kind === "error") {
-            translationState = {kind: "idle"};
+            translationState = { kind: "idle" };
 
             output.appendLine(`翻译失败：${formatError(outcome.error)}`);
 
@@ -267,7 +267,7 @@ export function activate(context: vscode.ExtensionContext): void {
             editor.document.version !== captured.documentVersion
          ) {
             // 翻译期间切换编辑器或修改文档时，丢弃无法可靠定位的结果。
-            translationState = {kind: "idle"};
+            translationState = { kind: "idle" };
 
             output.appendLine("异步翻译已完成，但目标文档已发生变化");
 
@@ -275,7 +275,7 @@ export function activate(context: vscode.ExtensionContext): void {
          }
 
          if (outcome.kind === "unchanged") {
-            translationState = {kind: "idle"};
+            translationState = { kind: "idle" };
 
             output.appendLine("译文与原文一致，未追加到当前 Hover");
 
@@ -296,7 +296,7 @@ export function activate(context: vscode.ExtensionContext): void {
          const currentState = translationState;
 
          if (currentState.kind !== "idle" && currentState.requestId === requestId) {
-            translationState = {kind: "idle"};
+            translationState = { kind: "idle" };
          }
 
          output.appendLine(`翻译失败：${formatError(error)}`);
@@ -397,7 +397,7 @@ export function activate(context: vscode.ExtensionContext): void {
       const clearAll = "清除全部平台";
       const confirmation = await vscode.window.showWarningMessage(
          "请选择要从加密存储中清除的翻译凭据。明文设置不会受到影响。",
-         {modal: true},
+         { modal: true },
          clearCurrent,
          clearAll,
       );
@@ -417,7 +417,7 @@ export function activate(context: vscode.ExtensionContext): void {
 /** 清理仅存在于扩展宿主内的 Hover 和请求状态。 */
 export function deactivate(): void {
    capturedHover = undefined;
-   translationState = {kind: "idle"};
+   translationState = { kind: "idle" };
    running.clear();
 }
 

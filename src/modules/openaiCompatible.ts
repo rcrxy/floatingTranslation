@@ -1,4 +1,4 @@
-import type {TranslationMode} from "../Utils/ConfigTool";
+import type { TranslationMode } from "../Utils/ConfigTool";
 
 const defaultRequestTimeoutMilliseconds = 30_000;
 const defaultConcurrency = 3;
@@ -83,7 +83,7 @@ export class OpenAiCompatibleTranslation {
       const workerCount = Math.min(this.concurrency, texts.length);
 
       await Promise.all(
-         Array.from({length: workerCount}, async () => {
+         Array.from({ length: workerCount }, async () => {
             while (nextIndex < texts.length) {
                const currentIndex = nextIndex;
                nextIndex += 1;
@@ -115,13 +115,13 @@ export class OpenAiCompatibleTranslation {
             body: JSON.stringify({
                model: this.model,
                messages: [
-                  {role: "system", content: this.systemPrompt},
-                  {role: "user", content: sourceText},
+                  { role: "system", content: this.systemPrompt },
+                  { role: "user", content: sourceText },
                ],
 
                stream: false, // 关闭流式输出
                //#region 关闭思考模式 close thinking
-               thinking: {type: "disable"}, // deepseek
+               thinking: { type: "disable" }, // deepseek
                think: false, // ollama
                extra_body: {
                   enable_thinking: false, // other
@@ -135,7 +135,7 @@ export class OpenAiCompatibleTranslation {
       } catch (error) {
          const message = error instanceof Error ? error.message : String(error);
 
-         throw new Error(`OpenAI 兼容服务请求失败：${message}`, {cause: error});
+         throw new Error(`OpenAI 兼容服务请求失败：${message}`, { cause: error });
       }
 
       if (!response.ok) {
@@ -147,7 +147,7 @@ export class OpenAiCompatibleTranslation {
       try {
          responseBody = (await response.json()) as ChatCompletionResponse;
       } catch (error) {
-         throw new Error("OpenAI 兼容服务响应不是有效 JSON", {cause: error});
+         throw new Error("OpenAI 兼容服务响应不是有效 JSON", { cause: error });
       }
 
       const message = responseBody.choices?.[0]?.message;
@@ -240,7 +240,7 @@ function normalizeEndpoint(value: string): string {
    try {
       url = new URL(endpoint);
    } catch (error) {
-      throw new Error("OpenAI 兼容服务请求地址无效", {cause: error});
+      throw new Error("OpenAI 兼容服务请求地址无效", { cause: error });
    }
 
    if (url.protocol !== "https:" && url.protocol !== "http:") {

@@ -1,8 +1,8 @@
 import * as vscode from "vscode";
 import { AliyunTranslation } from "./modules/aliyun";
-import {BaiduTranslation} from "./modules/baidu";
-import {OpenAiCompatibleTranslation} from "./modules/openaiCompatible";
-import {ConfigTool, type TranslationMode} from "./Utils/ConfigTool";
+import { BaiduTranslation } from "./modules/baidu";
+import { OpenAiCompatibleTranslation } from "./modules/openaiCompatible";
+import { ConfigTool, type TranslationMode } from "./Utils/ConfigTool";
 import { output } from "./Utils/output";
 import { restoreTranslationPlaceholders, type TranslatableContent } from "./Utils/TranslatableContentAnalyzer";
 
@@ -124,7 +124,7 @@ function createCodeBlockProtectionPlan(sourceText: string, sourceTexts: string[]
    const parts: TranslationPlanPart[] = [];
    const lines = sourceText.match(/[^\r\n]*(?:\r\n|\n|$)/g)?.filter((line) => line.length > 0) ?? [];
    let translatableText = "";
-   let fence: {readonly marker: "`" | "~"; readonly length: number} | undefined;
+   let fence: { readonly marker: "`" | "~"; readonly length: number } | undefined;
 
    const flushTranslatableText = (): void => {
       appendPlannedText(parts, translatableText, sourceTexts);
@@ -168,7 +168,7 @@ function createCodeBlockProtectionPlan(sourceText: string, sourceTexts: string[]
    }
 
    flushTranslatableText();
-   return {parts};
+   return { parts };
 }
 
 /** 只把围栏代码块和缩进代码保留在本地，其余原始 Markdown 按位置翻译。 */
@@ -277,12 +277,12 @@ function createTranslationPlan(
 ): TranslationPlan {
    const parts: TranslationPlanPart[] = [];
    const positionedPlaceholders = placeholders
-      .map((placeholder) => ({placeholder, index: sourceText.indexOf(placeholder.token)}))
+      .map((placeholder) => ({ placeholder, index: sourceText.indexOf(placeholder.token) }))
       .filter((item) => item.index >= 0)
       .sort((left, right) => left.index - right.index);
    let sourceIndex = 0;
 
-   for (const {placeholder, index} of positionedPlaceholders) {
+   for (const { placeholder, index } of positionedPlaceholders) {
       appendPlannedText(parts, sourceText.slice(sourceIndex, index), sourceTexts);
       appendLiteralPart(parts, placeholder.token);
       sourceIndex = index + placeholder.token.length;
@@ -290,7 +290,7 @@ function createTranslationPlan(
 
    appendPlannedText(parts, sourceText.slice(sourceIndex), sourceTexts);
 
-   return {parts};
+   return { parts };
 }
 
 /** 登记一个可能包含首尾空白的自然语言片段。 */
@@ -305,7 +305,7 @@ function appendPlannedText(parts: TranslationPlanPart[], text: string, sourceTex
    const trimmedTextIndex = text.indexOf(trimmedText);
 
    appendLiteralPart(parts, text.slice(0, trimmedTextIndex));
-   parts.push({kind: "translated", translationIndex: sourceTexts.push(trimmedText) - 1});
+   parts.push({ kind: "translated", translationIndex: sourceTexts.push(trimmedText) - 1 });
    appendLiteralPart(parts, text.slice(trimmedTextIndex + trimmedText.length));
 }
 
@@ -318,16 +318,14 @@ function appendLiteralPart(parts: TranslationPlanPart[], text: string): void {
    const previousPart = parts.at(-1);
 
    if (previousPart?.kind === "literal") {
-      parts[parts.length - 1] = {kind: "literal", text: previousPart.text + text};
+      parts[parts.length - 1] = { kind: "literal", text: previousPart.text + text };
       return;
    }
 
-   parts.push({kind: "literal", text});
+   parts.push({ kind: "literal", text });
 }
 
 /** 按翻译计划合并平台返回的自然语言片段和本地保存的精确占位符。 */
 function restoreTranslationPlan(plan: TranslationPlan, translatedTexts: readonly string[]): string {
-   return plan.parts
-      .map((part) => (part.kind === "literal" ? part.text : translatedTexts[part.translationIndex]))
-      .join("");
+   return plan.parts.map((part) => (part.kind === "literal" ? part.text : translatedTexts[part.translationIndex])).join("");
 }

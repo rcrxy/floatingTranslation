@@ -1,4 +1,4 @@
-import {createHash, randomBytes} from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 
 /** 百度通用文本翻译 API 固定地址。 */
 const endpoint = "https://fanyi-api.baidu.com/api/trans/vip/translate";
@@ -88,7 +88,7 @@ export class BaiduTranslation {
       } catch (error) {
          const message = error instanceof Error ? error.message : String(error);
 
-         throw new Error(`百度翻译请求失败：${message}`, {cause: error});
+         throw new Error(`百度翻译请求失败：${message}`, { cause: error });
       }
 
       if (!response.ok) {

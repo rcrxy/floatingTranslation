@@ -1,22 +1,22 @@
 import * as assert from "node:assert/strict";
-import {OpenAiCompatibleTranslation, buildTranslationPrompt} from "../modules/openaiCompatible";
-import type {TranslationMode} from "../Utils/ConfigTool";
+import { OpenAiCompatibleTranslation, buildTranslationPrompt } from "../modules/openaiCompatible";
+import type { TranslationMode } from "../Utils/ConfigTool";
 
 suite("OpenAiCompatibleTranslation", () => {
    test("发送 Chat Completions 请求并保持输入顺序", async () => {
-      const requests: Array<{readonly url: string; readonly body: Record<string, unknown>}> = [];
+      const requests: Array<{ readonly url: string; readonly body: Record<string, unknown> }> = [];
       const fetchImplementation = (async (input: string | URL | Request, init?: RequestInit) => {
          const body = JSON.parse(String(init?.body)) as {
-            readonly messages: readonly {readonly role: string; readonly content: string}[];
+            readonly messages: readonly { readonly role: string; readonly content: string }[];
          };
 
-         requests.push({url: String(input), body});
+         requests.push({ url: String(input), body });
 
          return new Response(
             JSON.stringify({
-               choices: [{message: {content: `译文：${body.messages[1].content}`}}],
+               choices: [{ message: { content: `译文：${body.messages[1].content}` } }],
             }),
-            {status: 200, headers: {"Content-Type": "application/json"}},
+            { status: 200, headers: { "Content-Type": "application/json" } },
          );
       }) as typeof fetch;
       const service = new OpenAiCompatibleTranslation(
@@ -40,12 +40,12 @@ suite("OpenAiCompatibleTranslation", () => {
       assert.equal(requests[0].body.model, "test-model");
       assert.equal(requests[0].body.stream, false);
 
-      const firstMessages = requests[0].body.messages as readonly {readonly role: string; readonly content: string}[];
+      const firstMessages = requests[0].body.messages as readonly { readonly role: string; readonly content: string }[];
 
       assert.equal(firstMessages[0].role, "system");
       assert.match(firstMessages[0].content, /only natural-language fragments/);
       assert.match(firstMessages[0].content, /Additional preference: 使用简洁术语。/);
-      assert.deepEqual(firstMessages[1], {role: "user", content: "First."});
+      assert.deepEqual(firstMessages[1], { role: "user", content: "First." });
    });
 
    test("四种翻译模式使用独立 Prompt", () => {
@@ -62,9 +62,9 @@ suite("OpenAiCompatibleTranslation", () => {
 
    test("拒绝缺少有效译文的兼容响应", async () => {
       const fetchImplementation = (async () =>
-         new Response(JSON.stringify({choices: [{message: {content: ""}}]}), {
+         new Response(JSON.stringify({ choices: [{ message: { content: "" } }] }), {
             status: 200,
-            headers: {"Content-Type": "application/json"},
+            headers: { "Content-Type": "application/json" },
          })) as typeof fetch;
       const service = new OpenAiCompatibleTranslation(
          {
