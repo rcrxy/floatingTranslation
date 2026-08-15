@@ -4,6 +4,7 @@
    "command.trigger.title": "悬浮翻译：翻译悬浮内容",
    "command.configureCredentials.title": "悬浮翻译：配置凭据",
    "command.clearCredentials.title": "悬浮翻译：清除凭据",
+   "command.clearWorkspaceCache.title": "悬浮翻译：清空工作区缓存",
    "configuration.title": "悬浮翻译",
    "configuration.sourceLanguage.description": "待翻译文本的原语言代码。",
    "configuration.targetLanguage.description": "译文的目标语言代码。留空时使用 VS Code 当前的显示语言。",

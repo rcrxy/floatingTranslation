@@ -1,9 +1,10 @@
-# Change Log
+## [0.0.7] - 2026-08-15
 
-All notable changes to the "floatingTranslation" extension will be documented in this file.
+### Added
 
-Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
-
-## [Unreleased]
-
-- Initial release
+- Translate VS Code Hover documentation.
+- Alibaba Cloud and Baidu Translate support.
+- OpenAI-compatible translation services.
+- Four translation protection modes.
+- Workspace translation cache.
+- Optional encrypted credential storage using VS Code SecretStorage.

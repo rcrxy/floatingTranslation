@@ -10,12 +10,27 @@
       "type": "git",
       "url": "https://github.com/rcrxy/floatingTranslation.git"
    },
+   "homepage": "https://github.com/rcrxy/floatingTranslation#readme",
+   "bugs": {
+      "url": "https://github.com/rcrxy/floatingTranslation/issues"
+   },
    "engines": {
       "vscode": "^1.125.0"
    },
    "categories": [
       "Other"
    ],
+   "keywords": [
+    "translation",
+    "translate",
+    "hover",
+    "documentation",
+    "localization",
+    "openai",
+    "baidu",
+    "aliyun"
+   ],
+   "pricing": "Free",
    "activationEvents": [
       "onStartupFinished"
    ],
@@ -34,6 +49,10 @@
          {
             "command": "floatingTranslation.clearCredentials",
             "title": "%command.clearCredentials.title%"
+         },
+         {
+            "command": "floatingTranslation.clearWorkspaceCache",
+            "title": "%command.clearWorkspaceCache.title%"
          }
       ],
       "keybindings": [

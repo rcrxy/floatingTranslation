@@ -4,6 +4,7 @@
    "command.trigger.title": "Floating Translation: Translate Hover",
    "command.configureCredentials.title": "Floating Translation: Configure Credentials",
    "command.clearCredentials.title": "Floating Translation: Clear Credentials",
+   "command.clearWorkspaceCache.title": "Floating Translation: Clear Workspace Cache",
    "configuration.title": "Floating Translation",
    "configuration.sourceLanguage.description": "The source language code of the text to translate.",
    "configuration.targetLanguage.description": "The target language code for translations. When empty, the current VS Code display language is used.",
