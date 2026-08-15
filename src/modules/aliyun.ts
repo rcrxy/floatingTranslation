@@ -1,27 +1,16 @@
 import AlimtClient, { TranslateGeneralRequest } from "@alicloud/alimt20181012";
 import { $OpenApiUtil } from "@alicloud/openapi-core";
+import type { TranslationProvider } from "../@types/TranslationProvider";
+import type { AliyunTranslationOptions } from "../@types/TranslationProviderOptions";
 import { getConcurrentRequestCount, mapWithConcurrency, normalizePositiveInteger } from "../Utils/ConcurrentRequestExecutor";
 
 /** 阿里云机器翻译通用版固定服务端点。 */
 const endpoint = "mt.cn-hangzhou.aliyuncs.com";
 const defaultConcurrency = 50;
 
-/** 创建阿里云翻译适配器所需的完整、与 VS Code 无关的配置。 */
-export interface AliyunTranslationOptions {
-   /** 阿里云支持的源语言代码。 */
-   readonly sourceLanguage: string;
-   /** 阿里云支持的目标语言代码。 */
-   readonly targetLanguage: string;
-   /** 阿里云 AccessKey ID。 */
-   readonly accessKeyId: string;
-   /** 阿里云 AccessKey Secret。 */
-   readonly accessKeySecret: string;
-   /** 每秒启动及同时进行的最大请求数。 */
-   readonly concurrency?: number;
-}
-
 /** 调用阿里云机器翻译通用版的服务适配器。 */
-export class AliyunTranslation {
+export class AliyunTranslation implements TranslationProvider {
+   public readonly serviceName = "阿里云翻译";
    /** 控制排队任务及适配器返回结果的终止信号。 */
    private readonly abortController = new AbortController();
    /** 归一化后的源语言代码。 */

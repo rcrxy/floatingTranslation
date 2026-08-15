@@ -1,30 +1,10 @@
-import type { TranslationMode } from "../Utils/ConfigTool";
+import type { TranslationProvider } from "../@types/TranslationProvider";
+import type { TranslationMode } from "../@types/TranslationConfiguration";
+import type { OpenAiCompatibleTranslationOptions } from "../@types/TranslationProviderOptions";
 import { getConcurrentRequestCount, mapWithConcurrency, normalizePositiveInteger } from "../Utils/ConcurrentRequestExecutor";
 
 const defaultRequestTimeoutMilliseconds = 30_000;
 const defaultConcurrency = 3;
-
-/** 创建 OpenAI 兼容翻译适配器所需的完整、与 VS Code 无关的配置。 */
-export interface OpenAiCompatibleTranslationOptions {
-   /** 完整的 Chat Completions 请求地址，适配器不会自动拼接路径。 */
-   readonly endpoint: string;
-   /** Bearer 鉴权使用的 API Key。 */
-   readonly apiKey: string;
-   /** 由兼容服务提供的模型标识符。 */
-   readonly model: string;
-   /** 翻译请求使用的源语言代码或名称。 */
-   readonly sourceLanguage: string;
-   /** 翻译请求使用的目标语言代码或名称。 */
-   readonly targetLanguage: string;
-   /** 当前内容保护模式，用于选择对应的系统 Prompt。 */
-   readonly translationMode: TranslationMode;
-   /** 用户提供的附加翻译偏好，不得覆盖系统核心约束。 */
-   readonly customPrompt: string;
-   /** 单次 HTTP 请求超时。 */
-   readonly requestTimeoutMilliseconds?: number;
-   /** 同时进行的最大请求数。 */
-   readonly concurrency?: number;
-}
 
 interface ChatCompletionMessage {
    readonly content?: unknown;
@@ -41,7 +21,8 @@ interface ChatCompletionResponse {
 }
 
 /** 调用 OpenAI 兼容 Chat Completions HTTP 接口的翻译适配器。 */
-export class OpenAiCompatibleTranslation {
+export class OpenAiCompatibleTranslation implements TranslationProvider {
+   public readonly serviceName = "OpenAI 兼容服务";
    private readonly abortController = new AbortController();
    private readonly endpoint: string;
    private readonly apiKey: string;

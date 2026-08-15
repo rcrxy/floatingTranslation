@@ -1,6 +1,6 @@
 import * as assert from "node:assert/strict";
+import type { TranslationMode } from "../@types/TranslationConfiguration";
 import { OpenAiCompatibleTranslation, buildTranslationPrompt } from "../modules/openaiCompatible";
-import type { TranslationMode } from "../Utils/ConfigTool";
 
 suite("OpenAiCompatibleTranslation", () => {
    test("发送 Chat Completions 请求并保持输入顺序", async () => {

@@ -1,3 +1,5 @@
+import type { ConcurrentRequestOptions, RequestScheduler } from "../@types/ConcurrentRequest";
+
 /** 将无效值回退为调用方提供的正整数默认值。 */
 export function normalizePositiveInteger(value: unknown, fallback: number): number {
    return Number.isSafeInteger(value) && (value as number) > 0 ? (value as number) : fallback;
@@ -6,17 +8,6 @@ export function normalizePositiveInteger(value: unknown, fallback: number): numb
 /** 根据任务数量和并发上限计算本次实际启动的 worker 数量。 */
 export function getConcurrentRequestCount(taskCount: number, concurrency: number): number {
    return Math.min(Math.max(0, taskCount), concurrency);
-}
-
-interface RequestScheduler {
-   readonly now: () => number;
-   readonly wait: (milliseconds: number) => Promise<void>;
-}
-
-interface ConcurrentRequestOptions {
-   readonly requestsPerSecond?: number;
-   readonly scheduler?: RequestScheduler;
-   readonly signal?: AbortSignal;
 }
 
 const defaultRequestScheduler: RequestScheduler = {

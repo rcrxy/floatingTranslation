@@ -1,23 +1,18 @@
 import * as vscode from "vscode";
+import type { TranslationProvider } from "./@types/TranslationProvider";
+import type { TranslationInvoker, TranslationTask } from "./@types/TranslationTask";
+import type { TranslationMode } from "./@types/TranslationConfiguration";
+import type {
+   TranslatableContent,
+   TranslatableContentValue,
+   TranslationPlaceholder,
+} from "./@types/TranslatableContent";
 import { AliyunTranslation } from "./modules/aliyun";
 import { BaiduTranslation } from "./modules/baidu";
 import { OpenAiCompatibleTranslation } from "./modules/openaiCompatible";
-import { ConfigTool, type TranslationMode } from "./Utils/ConfigTool";
+import { ConfigTool } from "./Utils/ConfigTool";
 import { output } from "./Utils/output";
-import { restoreTranslationPlaceholders, type TranslatableContent } from "./Utils/TranslatableContentAnalyzer";
-
-/** 不关心具体服务实现的批量文本翻译函数。 */
-type TranslationInvoker = (sourceTexts: readonly string[]) => Promise<string[]>;
-
-/** 上层可等待或终止的一次完整翻译任务。 */
-export interface TranslationTask {
-   readonly promise: Promise<string>;
-   readonly terminate: () => void;
-}
-
-interface TranslationAdapter {
-   readonly terminate: () => void;
-}
+import { restoreTranslationPlaceholders } from "./Utils/TranslatableContentAnalyzer";
 
 type TranslationPlanPart =
    | {
@@ -38,11 +33,11 @@ type TranslationPlan = {
  * 服务所需配置在这里注入，底层模块不直接依赖 VS Code 配置 API。
  */
 export function AggregationTranslation(contents: readonly TranslatableContent[], configTool: ConfigTool): TranslationTask {
-   let adapter: TranslationAdapter | undefined;
+   let provider: TranslationProvider | undefined;
    let terminated = false;
    const terminate = (): void => {
       terminated = true;
-      adapter?.terminate();
+      provider?.terminate();
    };
    const promise = startTranslation();
 
@@ -68,16 +63,9 @@ export function AggregationTranslation(contents: readonly TranslatableContent[],
                accessKeySecret: configuration.aliyunAccessKeySecret,
                concurrency: configuration.QPS,
             });
-            adapter = aliyun;
+            provider = aliyun;
 
-            return translateContents(
-               contents,
-               (sourceTexts) => {
-                  outputTranslationInvocation("阿里云翻译", sourceTexts, aliyun.getConcurrentRequestCount(sourceTexts.length));
-                  return aliyun.invoke(sourceTexts);
-               },
-               configuration.translationMode,
-            );
+            return translateContents(contents, createTranslationInvoker(aliyun), configuration.translationMode);
          }
          case "baidu": {
             const baidu = new BaiduTranslation({
@@ -87,16 +75,9 @@ export function AggregationTranslation(contents: readonly TranslatableContent[],
                appKey: configuration.baiduAppKey,
                concurrency: configuration.QPS,
             });
-            adapter = baidu;
+            provider = baidu;
 
-            return translateContents(
-               contents,
-               (sourceTexts) => {
-                  outputTranslationInvocation("百度翻译", sourceTexts, baidu.getConcurrentRequestCount(sourceTexts.length));
-                  return baidu.invoke(sourceTexts);
-               },
-               configuration.translationMode,
-            );
+            return translateContents(contents, createTranslationInvoker(baidu), configuration.translationMode);
          }
          case "openaiCompatible": {
             const openAiCompatible = new OpenAiCompatibleTranslation({
@@ -108,20 +89,15 @@ export function AggregationTranslation(contents: readonly TranslatableContent[],
                translationMode: configuration.translationMode,
                customPrompt: configuration.customPrompt,
             });
-            adapter = openAiCompatible;
+            provider = openAiCompatible;
 
             return translateContents(
                contents,
-               (sourceTexts) => {
-                  outputTranslationInvocation(
-                     "OpenAI 兼容服务",
-                     sourceTexts,
-                     openAiCompatible.getConcurrentRequestCount(sourceTexts.length),
-                     configuration.openAiCompatibleEndpoint,
-                     configuration.openAiCompatibleModel,
-                  );
-                  return openAiCompatible.invoke(sourceTexts);
-               },
+               createTranslationInvoker(
+                  openAiCompatible,
+                  configuration.openAiCompatibleEndpoint,
+                  configuration.openAiCompatibleModel,
+               ),
                configuration.translationMode,
             );
          }
@@ -129,6 +105,19 @@ export function AggregationTranslation(contents: readonly TranslatableContent[],
             throw new Error(`不支持的翻译工具：${configuration.translationTool}`);
       }
    }
+}
+
+function createTranslationInvoker(provider: TranslationProvider, endpoint?: string, model?: string): TranslationInvoker {
+   return (sourceTexts) => {
+      outputTranslationInvocation(
+         provider.serviceName,
+         sourceTexts,
+         provider.getConcurrentRequestCount(sourceTexts.length),
+         endpoint,
+         model,
+      );
+      return provider.invoke(sourceTexts);
+   };
 }
 
 /** 输出本次真正提交给翻译服务的调用信息。 */
@@ -311,7 +300,7 @@ async function invokeTranslation(sourceTexts: readonly string[], translate: Tran
 function restoreStructuredContents<TResult>(
    contents: readonly TranslatableContent[],
    translatedResults: readonly TResult[],
-   restore: (value: TranslatableContent["value"][number], result: TResult) => string,
+   restore: (value: TranslatableContentValue, result: TResult) => string,
 ): string {
    const translatedContents: string[] = [];
    let translatedValueIndex = 0;
@@ -342,7 +331,7 @@ function restoreStructuredContents<TResult>(
  */
 function createTranslationPlan(
    sourceText: string,
-   placeholders: TranslatableContent["value"][number]["placeholders"],
+   placeholders: readonly TranslationPlaceholder[],
    sourceTexts: string[],
 ): TranslationPlan {
    const parts: TranslationPlanPart[] = [];

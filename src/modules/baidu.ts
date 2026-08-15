@@ -1,24 +1,12 @@
 import { createHash, randomBytes } from "node:crypto";
+import type { TranslationProvider } from "../@types/TranslationProvider";
+import type { BaiduTranslationOptions } from "../@types/TranslationProviderOptions";
 import { getConcurrentRequestCount, mapWithConcurrency, normalizePositiveInteger } from "../Utils/ConcurrentRequestExecutor";
 
 /** 百度通用文本翻译 API 固定地址。 */
 const endpoint = "https://fanyi-api.baidu.com/api/trans/vip/translate";
 const requestTimeoutMilliseconds = 15_000;
 const defaultConcurrency = 50;
-
-/** 创建百度翻译适配器所需的完整、与 VS Code 无关的配置。 */
-export interface BaiduTranslationOptions {
-   /** 百度支持的源语言代码。 */
-   readonly sourceLanguage: string;
-   /** 百度支持的目标语言代码。 */
-   readonly targetLanguage: string;
-   /** 百度翻译开放平台 APPID。 */
-   readonly appId: string;
-   /** 百度翻译开放平台密钥。 */
-   readonly appKey: string;
-   /** 每秒启动及同时进行的最大请求数。 */
-   readonly concurrency?: number;
-}
 
 interface BaiduTranslationResult {
    readonly src?: string;
@@ -32,7 +20,8 @@ interface BaiduTranslationResponse {
 }
 
 /** 调用百度通用文本翻译 API 的服务适配器。 */
-export class BaiduTranslation {
+export class BaiduTranslation implements TranslationProvider {
+   public readonly serviceName = "百度翻译";
    /** 控制排队任务和在途 HTTP 请求的终止信号。 */
    private readonly abortController = new AbortController();
    /** 归一化后的源语言代码。 */

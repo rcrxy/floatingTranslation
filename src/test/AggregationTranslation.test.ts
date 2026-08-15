@@ -1,7 +1,8 @@
 import * as assert from "node:assert/strict";
+import type { FloatingTranslationConfiguration } from "../@types/TranslationConfiguration";
+import type { TranslatableContent, TranslationPlaceholder } from "../@types/TranslatableContent";
 import { AggregationTranslation, hasTranslatableContent, translateContents } from "../AggregationTranslation";
-import type { ConfigTool, FloatingTranslationConfiguration } from "../Utils/ConfigTool";
-import type { TranslatableContent, TranslationPlaceholder } from "../Utils/TranslatableContentAnalyzer";
+import type { ConfigTool } from "../Utils/ConfigTool";
 
 suite("AggregationTranslation", () => {
    test("配置读取完成前允许上层终止翻译任务", async () => {

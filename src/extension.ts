@@ -1,7 +1,9 @@
 import * as vscode from "vscode";
-import { ConfigTool, normalizeTranslationMode, type TranslationMode } from "./Utils/ConfigTool";
+import type { TranslationMode } from "./@types/TranslationConfiguration";
+import type { TranslatableContent } from "./@types/TranslatableContent";
+import { ConfigTool, normalizeTranslationMode } from "./Utils/ConfigTool";
 import { output } from "./Utils/output";
-import { TranslatableContentAnalyzer, type TranslatableContent } from "./Utils/TranslatableContentAnalyzer";
+import { TranslatableContentAnalyzer } from "./Utils/TranslatableContentAnalyzer";
 import { AggregationTranslation, hasTranslatableContent } from "./AggregationTranslation";
 
 // executeHoverProvider 会回调本扩展的 Provider，用位置键阻断同一次递归调用。
