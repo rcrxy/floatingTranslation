@@ -1,5 +1,7 @@
 name: Bug report
-description: 报告可复现的 Floating Translation 问题
+description: |
+   Report reproducible Floating Translation issues.
+   报告可复现的 Floating Translation 问题
 title: "[Bug]: "
 labels:
    - bug
@@ -8,24 +10,35 @@ body:
    - type: markdown
      attributes:
         value: |
+           Thank you for helping improve Floating Translation.
+           Do not submit API Keys, AccessKeys, Secrets, Tokens, signatures, full request headers, or other sensitive credentials. Please redact logs before pasting them.
+           ----------------
            感谢你帮助改进 Floating Translation。
-
            请勿提交 API Key、AccessKey、Secret、Token、签名、完整请求头或其他敏感凭据。粘贴日志前请先脱敏。
 
    - type: textarea
      id: description
      attributes:
-        label: 问题描述
-        description: 请清楚说明发生了什么，以及问题对你的影响。
+        label: Description | 问题描述
+        description: |
+           Clearly describe what happened and how the issue affects you.
+           请清楚说明发生了什么，以及问题对你的影响。
      validations:
         required: true
 
    - type: textarea
      id: reproduction
      attributes:
-        label: 复现步骤
-        description: 请提供能够稳定复现问题的最小步骤。
+        label: Reproduction Steps | 复现步骤
+        description: |
+           Provide the minimal steps that can reproduce the issue consistently.
+           请提供能够稳定复现问题的最小步骤。
         placeholder: |
+           1. Open...
+           2. Hover over...
+           3. Run...
+           4. Observe...
+           ----------------
            1. 打开……
            2. 将鼠标悬停在……
            3. 执行……
@@ -36,40 +49,46 @@ body:
    - type: textarea
      id: expected-behavior
      attributes:
-        label: 预期行为
-        description: 你期望 Floating Translation 如何工作？
+        label: Expected Behavior | 预期行为
+        description: |
+           How do you expect Floating Translation to work?
+           你期望 Floating Translation 如何工作？
      validations:
         required: true
 
    - type: textarea
      id: actual-behavior
      attributes:
-        label: 实际行为
-        description: 实际发生了什么？如有错误消息，请提供脱敏后的完整文本。
+        label: Actual Behavior | 实际行为
+        description: |
+           What actually happened? If there is an error message, provide the full redacted text.
+           实际发生了什么？如有错误消息，请提供脱敏后的完整文本。
      validations:
         required: true
 
    - type: input
      id: vscode-version
      attributes:
-        label: VS Code 版本
-        description: 可通过“帮助 → 关于”查看。
-        placeholder: 例如 1.125.0
+        label: VS Code Version | VS Code 版本
+        description: |
+           You can check it from Help -> About.
+           可通过“帮助 → 关于”查看。
+        placeholder: For example 1.125.0 | 例如 1.125.0
      validations:
         required: true
 
    - type: input
      id: extension-version
      attributes:
-        label: Floating Translation 版本
-        placeholder: 例如 0.0.7
+        label: Floating Translation Version | Floating Translation 版本
+        placeholder: For example 0.0.7 | 例如 0.0.7
      validations:
         required: true
 
    - type: dropdown
      id: operating-system
      attributes:
-        label: 操作系统
+        label: Operating System | 操作系统
         options:
            - Windows
            - macOS
@@ -81,8 +100,10 @@ body:
    - type: dropdown
      id: translation-provider
      attributes:
-        label: 翻译平台
-        description: 请选择问题发生时使用的平台。
+        label: Translation Provider | 翻译平台
+        description: |
+           Select the provider used when the issue occurred.
+           请选择问题发生时使用的平台。
         options:
            - Alibaba Cloud
            - Baidu Translate
@@ -95,7 +116,9 @@ body:
      id: translation-mode
      attributes:
         label: translationMode
-        description: 请选择问题发生时的 `floating-translation.translationMode`。
+        description: |
+           Select the `floating-translation.translationMode` used when the issue occurred.
+           请选择问题发生时的 `floating-translation.translationMode`。
         options:
            - fullText
            - codeBlocks
@@ -108,20 +131,24 @@ body:
    - type: textarea
      id: logs
      attributes:
-        label: 相关日志
-        description: 请粘贴脱敏后的 Floating Translation 输出或开发者工具日志。
+        label: Related Logs | 相关日志
+        description: |
+           Paste redacted Floating Translation output or Developer Tools logs.
+           请粘贴脱敏后的 Floating Translation 输出或开发者工具日志。
         render: text
 
    - type: textarea
      id: additional-context
      attributes:
-        label: 其他补充信息
-        description: 可补充最小示例、截图或其他有助于定位问题的信息。
+        label: Additional Context | 其他补充信息
+        description: |
+           Add a minimal example, screenshots, or other information that helps diagnose the issue.
+           可补充最小示例、截图或其他有助于定位问题的信息。
 
    - type: checkboxes
      id: sensitive-data-confirmation
      attributes:
-        label: 敏感信息确认
+        label: Sensitive Data Confirmation | 敏感信息确认
         options:
-           - label: 我已确认以上内容不包含 API Key、AccessKey、Secret、Token 或其他敏感凭据。
+           - label: I confirm the content above does not contain API Keys, AccessKeys, Secrets, Tokens, or other sensitive credentials. | 我已确认以上内容不包含 API Key、AccessKey、Secret、Token 或其他敏感凭据。
              required: true
